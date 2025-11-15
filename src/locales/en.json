@@ -1,0 +1,163 @@
+{
+  "languageSwitcher": {
+    "label": "Language",
+    "options": {
+      "en": "English",
+      "ar": "Arabic",
+      "fr": "French",
+      "es": "Spanish"
+    }
+  },
+  "progress": {
+    "level": "Level {{level}}",
+    "xp": "{{xp}} XP",
+    "quest": "Quest Progress: {{current}}/{{total}}"
+  },
+  "achievement": {
+    "levelUpTitle": "Level Up!",
+    "levelUpDescription": "You reached level {{level}}!",
+    "stepCompleteTitle": "Step Complete!",
+    "stepCompleteDescription": "{{stepTitle}} completed! +{{xp}} XP",
+    "questCompleteTitle": "Quest Complete!",
+    "questCompleteDescription": "Your scholarship matches are ready!"
+  },
+  "alerts": {
+    "questFailed": "Quest failed! Please try again."
+  },
+  "forms": {
+    "selectPlaceholder": "Select...",
+    "fields": {
+      "name": "Full Name",
+      "email": "Email Address",
+      "age": "Age",
+      "nationality": "Nationality",
+      "currentEducation": "Current Education Level",
+      "gpa": "GPA / Grade Average",
+      "englishLevel": "English Proficiency",
+      "fieldOfInterest": "Field of Interest",
+      "targetDegree": "Target Degree",
+      "budget": "Budget / Funding Need",
+      "workExperience": "Work Experience",
+      "achievements": "Achievements & Awards",
+      "targetCountries": "Target Countries / Regions",
+      "preferences": "Additional Preferences"
+    },
+    "placeholders": {
+      "name": "John Doe",
+      "email": "john@example.com",
+      "age": "22",
+      "nationality": "Morocco",
+      "currentEducation": "Bachelor's in Computer Science",
+      "gpa": "3.7 / 4.0 or 85%",
+      "englishLevel": "IELTS 7.5 / TOEFL 100",
+      "fieldOfInterest": "Artificial Intelligence and Machine Learning",
+      "targetCountries": "Europe, North America, Canada",
+      "preferences": "e.g., Research opportunities, Part-time work allowed, Specific universities",
+      "workExperience": "e.g., 2 years as Software Developer at XYZ Company",
+      "achievements": "e.g., Published papers, Won hackathon, Dean's list"
+    },
+    "options": {
+      "degrees": {
+        "bachelor": "Bachelor's",
+        "master": "Master's",
+        "phd": "PhD",
+        "diploma": "Diploma"
+      },
+      "budget": {
+        "full": "Full scholarship needed",
+        "partial": "Partial scholarship (50-75%)",
+        "contribute": "Can pay 25-50%",
+        "selfFund": "Can self-fund"
+      }
+    }
+  },
+  "steps": {
+    "welcome": {
+      "title": "Welcome, Scholar!",
+      "subtitle": "Begin Your Quest for Knowledge",
+      "headline": "🎓 Scholarship Quest",
+      "description": "Embark on an epic journey to find your perfect scholarship match! Complete quests, earn XP, and unlock your academic future.",
+      "button": "Start Quest"
+    },
+    "personal": {
+      "title": "Personal Info",
+      "subtitle": "Tell us about yourself",
+      "description": "Let's get to know you, future scholar!",
+      "button": "Continue Quest"
+    },
+    "education": {
+      "title": "Academic Journey",
+      "subtitle": "Your educational background",
+      "description": "Show us your educational achievements!",
+      "button": "Continue Quest"
+    },
+    "goals": {
+      "title": "Future Goals",
+      "subtitle": "Where do you want to go?",
+      "description": "Define your academic destination!",
+      "button": "Continue Quest"
+    },
+    "experience": {
+      "title": "Experience & Skills",
+      "subtitle": "Show your achievements",
+      "description": "Showcase your achievements and experience!",
+      "button": "Continue Quest"
+    },
+    "preferences": {
+      "title": "Preferences",
+      "subtitle": "Customize your search",
+      "description": "Customize your scholarship search!",
+      "button": "Complete Quest"
+    },
+    "complete": {
+      "title": "🎉 Quest Complete!",
+      "subtitle": "Analyzing your profile...",
+      "description": "Congratulations! You've completed your scholarship quest. Ready to discover your matches?",
+      "button": "Discover My Matches",
+      "loadingTitle": "🤖 AI Analyzing Your Profile...",
+      "loadingDescription": "Our AI is finding the perfect scholarships and universities for you!"
+    },
+    "results": {
+      "title": "Your Matches!",
+      "subtitle": "Discover your perfect opportunities"
+    }
+  },
+  "results": {
+    "hero": {
+      "title": "🎉 Your Perfect Matches, {{name}}!",
+      "description": "Our AI has analyzed your profile and found amazing opportunities tailored just for you!",
+      "level": "Level {{level}} Scholar",
+      "xp": "{{xp}} XP Earned"
+    },
+    "sections": {
+      "universities": "🏛️ Top University Matches",
+      "scholarships": "💰 Top Scholarship Opportunities",
+      "resources": "🛠️ Helpful Resources"
+    },
+    "universities": {
+      "match": "{{value}} Match"
+    },
+    "scholarships": {
+      "deadline": "Deadline: {{date}}",
+      "chance": "{{probability}} Chance"
+    },
+    "buttons": {
+      "visitWebsite": "Visit Website",
+      "applyNow": "Apply Now"
+    },
+    "resources": {
+      "sop": "SOP Tools",
+      "resume": "Resume Builders",
+      "testPrep": "Test Prep",
+      "forums": "Student Forums"
+    },
+    "actions": {
+      "title": "Ready for Your Next Quest?",
+      "startNew": "Start New Quest",
+      "viewGuide": "View Full Guide"
+    },
+    "debug": {
+      "title": "🔍 Debug: AI Results Data"
+    }
+  }
+}

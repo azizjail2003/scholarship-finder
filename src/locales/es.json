@@ -1,0 +1,163 @@
+{
+  "languageSwitcher": {
+    "label": "Idioma",
+    "options": {
+      "en": "Inglés",
+      "ar": "Árabe",
+      "fr": "Francés",
+      "es": "Español"
+    }
+  },
+  "progress": {
+    "level": "Nivel {{level}}",
+    "xp": "{{xp}} XP",
+    "quest": "Progreso de la misión: {{current}}/{{total}}"
+  },
+  "achievement": {
+    "levelUpTitle": "¡Subiste de nivel!",
+    "levelUpDescription": "¡Alcanzaste el nivel {{level}}!",
+    "stepCompleteTitle": "¡Etapa completada!",
+    "stepCompleteDescription": "{{stepTitle}} completada. +{{xp}} XP",
+    "questCompleteTitle": "¡Misión completada!",
+    "questCompleteDescription": "¡Tus coincidencias de becas están listas!"
+  },
+  "alerts": {
+    "questFailed": "¡La misión falló! Intenta de nuevo."
+  },
+  "forms": {
+    "selectPlaceholder": "Seleccionar...",
+    "fields": {
+      "name": "Nombre completo",
+      "email": "Correo electrónico",
+      "age": "Edad",
+      "nationality": "Nacionalidad",
+      "currentEducation": "Nivel educativo actual",
+      "gpa": "Promedio / GPA",
+      "englishLevel": "Dominio de inglés",
+      "fieldOfInterest": "Área de interés",
+      "targetDegree": "Grado objetivo",
+      "budget": "Presupuesto / Necesidad de fondos",
+      "workExperience": "Experiencia laboral",
+      "achievements": "Logros y premios",
+      "targetCountries": "Países / regiones objetivo",
+      "preferences": "Preferencias adicionales"
+    },
+    "placeholders": {
+      "name": "Juan Pérez",
+      "email": "juan@example.com",
+      "age": "22",
+      "nationality": "Marruecos",
+      "currentEducation": "Licenciatura en informática",
+      "gpa": "3.7 / 4.0 o 85%",
+      "englishLevel": "IELTS 7.5 / TOEFL 100",
+      "fieldOfInterest": "Inteligencia artificial y aprendizaje automático",
+      "targetCountries": "Europa, Norteamérica, Canadá",
+      "preferences": "p. ej.: Investigación, trabajo a medio tiempo, universidades específicas",
+      "workExperience": "p. ej.: 2 años como desarrollador en XYZ",
+      "achievements": "p. ej.: Artículos publicados, gané un hackathon"
+    },
+    "options": {
+      "degrees": {
+        "bachelor": "Licenciatura",
+        "master": "Maestría",
+        "phd": "Doctorado",
+        "diploma": "Diploma"
+      },
+      "budget": {
+        "full": "Necesito beca completa",
+        "partial": "Beca parcial (50-75%)",
+        "contribute": "Puedo pagar 25-50%",
+        "selfFund": "Puedo autofinanciarme"
+      }
+    }
+  },
+  "steps": {
+    "welcome": {
+      "title": "¡Bienvenido, erudito!",
+      "subtitle": "Comienza tu misión del conocimiento",
+      "headline": "🎓 Búsqueda de becas",
+      "description": "Emprende una travesía épica para encontrar tu beca ideal. Completa misiones, gana XP y desbloquea tu futuro académico.",
+      "button": "Iniciar misión"
+    },
+    "personal": {
+      "title": "Información personal",
+      "subtitle": "Cuéntanos sobre ti",
+      "description": "¡Queremos conocerte, futuro becario!",
+      "button": "Continuar misión"
+    },
+    "education": {
+      "title": "Trayectoria académica",
+      "subtitle": "Tu formación",
+      "description": "¡Muestra tus logros académicos!",
+      "button": "Continuar misión"
+    },
+    "goals": {
+      "title": "Metas futuras",
+      "subtitle": "¿A dónde quieres llegar?",
+      "description": "Define tu destino académico.",
+      "button": "Continuar misión"
+    },
+    "experience": {
+      "title": "Experiencia y habilidades",
+      "subtitle": "Demuestra tus logros",
+      "description": "Destaca tu experiencia y tus logros.",
+      "button": "Continuar misión"
+    },
+    "preferences": {
+      "title": "Preferencias",
+      "subtitle": "Personaliza tu búsqueda",
+      "description": "Personaliza tu búsqueda de becas.",
+      "button": "Completar misión"
+    },
+    "complete": {
+      "title": "🎉 ¡Misión completada!",
+      "subtitle": "Analizando tu perfil...",
+      "description": "¡Felicidades! Terminaste tu búsqueda de becas. ¿Listo para descubrir tus coincidencias?",
+      "button": "Descubrir mis coincidencias",
+      "loadingTitle": "🤖 La IA analiza tu perfil...",
+      "loadingDescription": "¡Nuestra IA está encontrando las mejores becas y universidades para ti!"
+    },
+    "results": {
+      "title": "¡Tus coincidencias!",
+      "subtitle": "Descubre tus oportunidades ideales"
+    }
+  },
+  "results": {
+    "hero": {
+      "title": "🎉 ¡Tus coincidencias perfectas, {{name}}!",
+      "description": "Nuestra IA analizó tu perfil y encontró oportunidades increíbles para ti.",
+      "level": "Estudiante nivel {{level}}",
+      "xp": "{{xp}} XP ganados"
+    },
+    "sections": {
+      "universities": "🏛️ Mejores universidades",
+      "scholarships": "💰 Mejores becas",
+      "resources": "🛠️ Recursos útiles"
+    },
+    "universities": {
+      "match": "Coincidencia {{value}}"
+    },
+    "scholarships": {
+      "deadline": "Fecha límite: {{date}}",
+      "chance": "Probabilidad {{probability}}"
+    },
+    "buttons": {
+      "visitWebsite": "Visitar sitio",
+      "applyNow": "Postular ahora"
+    },
+    "resources": {
+      "sop": "Herramientas para carta de motivación",
+      "resume": "Creador de CV",
+      "testPrep": "Preparación de exámenes",
+      "forums": "Foros estudiantiles"
+    },
+    "actions": {
+      "title": "¿Listo para tu próxima misión?",
+      "startNew": "Comenzar nueva misión",
+      "viewGuide": "Ver guía completa"
+    },
+    "debug": {
+      "title": "🔍 Depuración: datos de la IA"
+    }
+  }
+}
