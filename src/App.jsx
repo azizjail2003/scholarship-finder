@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import Confetti from 'react-confetti'
 import { useTranslation } from 'react-i18next'
@@ -25,7 +25,9 @@ import {
   BookOpen,
   Users,
   FileText,
-  Link
+  Link,
+  ArrowLeft,
+  Edit3
 } from 'lucide-react'
 
 const languageOptions = ['en', 'fr', 'es', 'ar']
@@ -62,6 +64,42 @@ const LanguageSwitcher = ({ currentLanguage, onChange, t }) => (
         ))}
       </select>
     </div>
+  </div>
+)
+
+const StepNavigation = ({
+  showBack,
+  backLabel,
+  onBack,
+  backIcon: BackIcon = ArrowLeft,
+  primaryLabel,
+  primaryIcon: PrimaryIcon = Star,
+  onPrimary,
+  primaryClassName = 'bg-gradient-to-r from-blue-500 to-purple-500 text-white',
+  primaryDisabled = false
+}) => (
+  <div className="flex flex-col sm:flex-row gap-4 mt-8">
+    {showBack && (
+      <motion.button
+        whileHover={{ scale: 1.02 }}
+        whileTap={{ scale: 0.98 }}
+        onClick={onBack}
+        className="bg-white/10 text-white px-6 py-3 rounded-xl font-semibold border border-white/20 flex items-center justify-center"
+      >
+        <BackIcon className="inline w-5 h-5 mr-2" />
+        {backLabel}
+      </motion.button>
+    )}
+    <motion.button
+      whileHover={{ scale: primaryDisabled ? 1 : 1.05 }}
+      whileTap={{ scale: primaryDisabled ? 1 : 0.95 }}
+      onClick={primaryDisabled ? undefined : onPrimary}
+      disabled={primaryDisabled}
+      className={`${primaryClassName} px-6 py-3 rounded-xl font-bold text-center flex items-center justify-center ${primaryDisabled ? 'opacity-60 cursor-not-allowed' : ''}`}
+    >
+      {PrimaryIcon && <PrimaryIcon className="inline w-5 h-5 mr-2" />}
+      {primaryLabel}
+    </motion.button>
   </div>
 )
 
@@ -227,35 +265,98 @@ const steps = [
   { id: 'results', icon: Star, xpReward: 1000 }
 ]
 
+const calculateXpForStep = (stepIndex) => {
+  const boundedIndex = Math.min(Math.max(stepIndex, 0), steps.length)
+  return steps.slice(0, boundedIndex).reduce((total, step) => total + step.xpReward, 0)
+}
+
+const getLevelFromXp = (xpValue) => Math.floor(xpValue / 500) + 1
+
+const defaultFormData = {
+  name: 'John Doe',
+  email: 'john.doe@example.com',
+  age: '23',
+  nationality: 'Moroccan',
+  currentEducation: "Bachelor's in Computer Science",
+  gpa: '3.8 / 4.0',
+  englishLevel: 'IELTS 7.5',
+  fieldOfInterest: 'Artificial Intelligence and Machine Learning',
+  targetDegree: "Master's",
+  budget: 'Full scholarship needed',
+  workExperience: '2 years as Junior Software Developer at XYZ Tech.',
+  achievements: "Published 1 research paper, won local AI hackathon, Dean's list",
+  targetCountries: 'Canada, Germany, Netherlands',
+  preferences: 'Strong research focus, part-time work allowed, preference for medium-sized universities.',
+  languagePreference: 'en'
+}
+
+const FORM_STORAGE_KEY = 'scholarshipQuest.form'
+const STEP_STORAGE_KEY = 'scholarshipQuest.step'
+
+const getStoredFormData = () => {
+  if (typeof window !== 'undefined') {
+    const saved = window.localStorage.getItem(FORM_STORAGE_KEY)
+    if (saved) {
+      try {
+        return { ...defaultFormData, ...JSON.parse(saved) }
+      } catch (error) {
+        console.warn('Failed to parse stored form data', error)
+      }
+    }
+  }
+  return defaultFormData
+}
+
+const getStoredStep = () => {
+  if (typeof window !== 'undefined') {
+    const saved = parseInt(window.localStorage.getItem(STEP_STORAGE_KEY), 10)
+    if (!Number.isNaN(saved)) {
+      return Math.min(Math.max(saved, 0), steps.length - 1)
+    }
+  }
+  return 0
+}
+
+const computeProgress = (targetIndex) => {
+  const boundedIndex = Math.min(Math.max(targetIndex, 0), steps.length - 1)
+  const xpValue = calculateXpForStep(boundedIndex)
+  const levelValue = getLevelFromXp(xpValue)
+  return { boundedIndex, xpValue, levelValue }
+}
+
 function App() {
   const { t, i18n } = useTranslation()
-  const [currentStep, setCurrentStep] = useState(0)
-  const [xp, setXp] = useState(0)
-  const [level, setLevel] = useState(1)
+  const storedFormData = useMemo(() => getStoredFormData(), [])
+  const storedStep = useMemo(() => getStoredStep(), [])
+  const initialLanguage = storedFormData.languagePreference || i18n.language || 'en'
+  const initialProgress = useMemo(() => computeProgress(storedStep), [storedStep])
+
+  const [currentStep, setCurrentStep] = useState(storedStep)
+  const [xp, setXp] = useState(initialProgress.xpValue)
+  const [level, setLevel] = useState(initialProgress.levelValue)
   const [showAchievement, setShowAchievement] = useState(false)
   const [achievementData, setAchievementData] = useState({})
   const [showConfetti, setShowConfetti] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [aiResults, setAiResults] = useState(null)
-  const [language, setLanguage] = useState(i18n.language || 'en')
+  const [language, setLanguage] = useState(initialLanguage)
 
-  const [formData, setFormData] = useState({
-    name: 'John Doe',
-    email: 'john.doe@example.com',
-    age: '23',
-    nationality: 'Moroccan',
-    currentEducation: "Bachelor's in Computer Science",
-    gpa: '3.8 / 4.0',
-    englishLevel: 'IELTS 7.5',
-    fieldOfInterest: 'Artificial Intelligence and Machine Learning',
-    targetDegree: "Master's",
-    budget: 'Full scholarship needed',
-    workExperience: '2 years as Junior Software Developer at XYZ Tech.',
-    achievements: "Published 1 research paper, won local AI hackathon, Dean's list",
-    targetCountries: 'Canada, Germany, Netherlands',
-    preferences: 'Strong research focus, part-time work allowed, preference for medium-sized universities.',
-    languagePreference: i18n.language || 'en'
-  })
+  const [formData, setFormData] = useState(() => ({
+    ...storedFormData,
+    languagePreference: initialLanguage
+  }))
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      window.localStorage.setItem(FORM_STORAGE_KEY, JSON.stringify(formData))
+    }
+  }, [formData])
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      window.localStorage.setItem(STEP_STORAGE_KEY, String(currentStep))
+    }
+  }, [currentStep])
 
   const handleLanguageChange = (lang) => {
     setLanguage(lang)
@@ -286,16 +387,25 @@ function App() {
     setShowAchievement(true)
   }
 
+  const jumpToStep = (targetIndex) => {
+    const boundedIndex = Math.min(Math.max(targetIndex, 0), steps.length - 1)
+    const newXp = calculateXpForStep(boundedIndex)
+    const newLevel = getLevelFromXp(newXp)
+    setCurrentStep(boundedIndex)
+    setXp(newXp)
+    setLevel(newLevel)
+    setShowAchievement(false)
+    setShowConfetti(false)
+  }
+
   const nextStep = () => {
     if (currentStep < steps.length - 1) {
-      const step = steps[currentStep]
-      const newXp = xp + step.xpReward
-      setXp(newXp)
-      
-      // Level up logic
-      const newLevel = Math.floor(newXp / 500) + 1
+      const completedStep = steps[currentStep]
+      const nextIndex = currentStep + 1
+      const newXp = calculateXpForStep(nextIndex)
+      const newLevel = getLevelFromXp(newXp)
+
       if (newLevel > level) {
-        setLevel(newLevel)
         showAchievementPopup(
           t('achievement.levelUpTitle'),
           t('achievement.levelUpDescription', { level: newLevel }),
@@ -305,16 +415,23 @@ function App() {
         setTimeout(() => setShowConfetti(false), 3000)
       }
 
-      setCurrentStep(currentStep + 1)
+      setCurrentStep(nextIndex)
+      setXp(newXp)
+      setLevel(newLevel)
 
-      // Show step completion achievement
       if (currentStep > 0) {
         showAchievementPopup(
           t('achievement.stepCompleteTitle'),
-          t('achievement.stepCompleteDescription', { stepTitle: t(`steps.${step.id}.title`), xp: step.xpReward }),
-          step.icon
+          t('achievement.stepCompleteDescription', { stepTitle: t(`steps.${completedStep.id}.title`), xp: completedStep.xpReward }),
+          completedStep.icon
         )
       }
+    }
+  }
+
+  const prevStep = () => {
+    if (currentStep > 0) {
+      jumpToStep(currentStep - 1)
     }
   }
 
@@ -346,7 +463,7 @@ function App() {
           
           // Instead of redirecting, show results in the app
           setTimeout(() => {
-            setCurrentStep(currentStep + 1) // Move to results step
+            nextStep()
           }, 2000)
         }
       } else {
@@ -361,6 +478,7 @@ function App() {
     }
   }
 
+  const navigationCopy = t('navigation', { returnObjects: true })
   const renderStepContent = () => {
     const step = steps[currentStep]
     const stepCopy = stepsCopy?.[step.id] || {}
@@ -382,14 +500,12 @@ function App() {
             <p className="text-xl text-gray-300 mb-8">
               {stepCopy.description}
             </p>
-            <motion.button
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              onClick={nextStep}
-              className="bg-gradient-to-r from-blue-500 to-purple-500 text-white px-8 py-4 rounded-xl font-bold text-lg neon-glow hover:shadow-2xl transition-all"
-            >
-              {stepCopy.button} <Zap className="inline w-5 h-5 ml-2" />
-            </motion.button>
+            <StepNavigation
+              showBack={false}
+              primaryLabel={stepCopy.button}
+              primaryIcon={Zap}
+              onPrimary={nextStep}
+            />
           </GameCard>
         )
 
@@ -437,14 +553,14 @@ function App() {
                 placeholder={formPlaceholders.nationality}
               />
             </div>
-            <motion.button
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              onClick={nextStep}
-              className="w-full mt-8 bg-gradient-to-r from-blue-500 to-purple-500 text-white py-4 rounded-xl font-bold text-lg neon-glow"
-            >
-              {stepCopy.button} <Star className="inline w-5 h-5 ml-2" />
-            </motion.button>
+            <StepNavigation
+              showBack={currentStep > 1}
+              backLabel={navigationCopy.back}
+              onBack={prevStep}
+              primaryLabel={stepCopy.button}
+              primaryIcon={Star}
+              onPrimary={nextStep}
+            />
           </GameCard>
         )
 
@@ -609,14 +725,14 @@ function App() {
                 placeholder={formPlaceholders.preferences}
               />
             </div>
-            <motion.button
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              onClick={nextStep}
-              className="w-full mt-8 bg-gradient-to-r from-blue-500 to-purple-500 text-white py-4 rounded-xl font-bold text-lg neon-glow"
-            >
-              {stepCopy.button} <Trophy className="inline w-5 h-5 ml-2" />
-            </motion.button>
+            <StepNavigation
+              showBack
+              backLabel={navigationCopy.back}
+              onBack={prevStep}
+              primaryLabel={stepCopy.button}
+              primaryIcon={Trophy}
+              onPrimary={nextStep}
+            />
           </GameCard>
         )
 
@@ -661,14 +777,16 @@ function App() {
                 <p className="text-xl text-gray-300 mb-8">
                   {stepCopy.description}
                 </p>
-                <motion.button
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  onClick={submitForm}
-                  className="bg-gradient-to-r from-yellow-400 to-orange-500 text-white px-8 py-4 rounded-xl font-bold text-lg neon-glow hover:shadow-2xl transition-all"
-                >
-                  {stepCopy.button} <Rocket className="inline w-5 h-5 ml-2" />
-                </motion.button>
+                <StepNavigation
+                  showBack
+                  backLabel={navigationCopy.back}
+                  onBack={prevStep}
+                  primaryLabel={stepCopy.button}
+                  primaryIcon={Rocket}
+                  onPrimary={submitForm}
+                  primaryClassName="bg-gradient-to-r from-yellow-400 to-orange-500 text-white"
+                  primaryDisabled={isSubmitting}
+                />
               </>
             )}
           </GameCard>
@@ -691,26 +809,49 @@ function App() {
                 <Star className="w-10 h-10 text-white" />
               </motion.div>
               <h1 className="game-font text-4xl font-bold text-white mb-4">
-                {heroTitle}
-              </h1>
-              <p className="text-xl text-gray-300 mb-6">
-                {resultsCopy.hero.description}
-              </p>
-              <div className="flex justify-center space-x-4 text-sm">
-                <div className="bg-blue-500/20 px-4 py-2 rounded-full">
-                  <Trophy className="inline w-4 h-4 mr-2" />
-                  {heroLevel}
-                </div>
-                <div className="bg-purple-500/20 px-4 py-2 rounded-full">
-                  <Star className="inline w-4 h-4 mr-2" />
-                  {heroXp}
-                </div>
-              </div>
-            </GameCard>
 
-            {/* Universities Section - From AI Results */}
-            <div>
-              <h2 className="game-font text-2xl font-bold text-white mb-6 text-center">
+  return (
+    <div className="max-w-6xl mx-auto space-y-8">
+      {/* Hero Section */}
+      <GameCard className="text-center">
+        <motion.div
+          animate={{ rotate: [0, 360] }}
+          transition={{ duration: 3, ease: "easeInOut" }}
+          className="w-20 h-20 mx-auto mb-6 bg-gradient-to-r from-yellow-400 to-orange-500 rounded-full flex items-center justify-center"
+        >
+          <Star className="w-10 h-10 text-white" />
+        </motion.div>
+        <h1 className="game-font text-4xl font-bold text-white mb-4">
+          {heroTitle}
+        </h1>
+        <p className="text-xl text-gray-300 mb-6">
+          {resultsCopy.hero.description}
+        </p>
+        <div className="flex justify-center space-x-4 text-sm mb-4">
+          <div className="bg-blue-500/20 px-4 py-2 rounded-full">
+            <Trophy className="inline w-4 h-4 mr-2" />
+            {resultsCopy.hero.level.replace('{{level}}', level)}
+          </div>
+          <div className="bg-purple-500/20 px-4 py-2 rounded-full">
+            <Star className="inline w-4 h-4 mr-2" />
+            {resultsCopy.hero.xp.replace('{{xp}}', xp)}
+          </div>
+        </div>
+        <StepNavigation
+          showBack
+          backLabel={navigationCopy.edit}
+          backIcon={Edit3}
+          onBack={() => jumpToStep(1)}
+          primaryLabel={resultsCopy.actions.startNew}
+          primaryIcon={Rocket}
+          onPrimary={() => {
+            window.localStorage.removeItem(FORM_STORAGE_KEY)
+            window.localStorage.removeItem(STEP_STORAGE_KEY)
+            window.location.reload()
+          }}
+          primaryClassName="bg-gradient-to-r from-blue-500 to-purple-500 text-white"
+        />
+      </GameCard>
                 {resultsCopy.sections.universities}
               </h2>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
