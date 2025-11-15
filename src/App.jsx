@@ -793,9 +793,15 @@ function App() {
         )
 
       case 'results': {
-        const heroTitle = t('results.hero.title', { name: formData.name })
+        const heroTitle = aiResults?.data?.recommendations?.hero?.title || t('results.hero.title', { name: formData.name })
+        const heroDescription = aiResults?.data?.recommendations?.hero?.description || resultsCopy.hero.description
+        const checklist = aiResults?.data?.recommendations?.checklist || []
+        const timelinePhases = aiResults?.data?.recommendations?.timeline || []
         const heroLevel = t('results.hero.level', { level })
         const heroXp = t('results.hero.xp', { xp })
+        const universityMatches = aiResults?.data?.linksData?.universities || []
+        const scholarshipMatches = aiResults?.data?.linksData?.scholarships || []
+        const resourceGroups = aiResults?.data?.linksData?.resources || {}
 
         return (
           <div className="max-w-6xl mx-auto space-y-8">
@@ -816,267 +822,212 @@ function App() {
       <GameCard className="text-center">
         <motion.div
           animate={{ rotate: [0, 360] }}
-          transition={{ duration: 3, ease: "easeInOut" }}
-          className="w-20 h-20 mx-auto mb-6 bg-gradient-to-r from-yellow-400 to-orange-500 rounded-full flex items-center justify-center"
-        >
-          <Star className="w-10 h-10 text-white" />
-        </motion.div>
-        <h1 className="game-font text-4xl font-bold text-white mb-4">
-          {heroTitle}
-        </h1>
-        <p className="text-xl text-gray-300 mb-6">
-          {resultsCopy.hero.description}
-        </p>
-        <div className="flex justify-center space-x-4 text-sm mb-4">
-          <div className="bg-blue-500/20 px-4 py-2 rounded-full">
-            <Trophy className="inline w-4 h-4 mr-2" />
-            {resultsCopy.hero.level.replace('{{level}}', level)}
-          </div>
-          <div className="bg-purple-500/20 px-4 py-2 rounded-full">
-            <Star className="inline w-4 h-4 mr-2" />
-            {resultsCopy.hero.xp.replace('{{xp}}', xp)}
-          </div>
-        </div>
-        <StepNavigation
-          showBack
-          backLabel={navigationCopy.edit}
-          backIcon={Edit3}
-          onBack={() => jumpToStep(1)}
-          primaryLabel={resultsCopy.actions.startNew}
-          primaryIcon={Rocket}
-          onPrimary={() => {
-            window.localStorage.removeItem(FORM_STORAGE_KEY)
-            window.localStorage.removeItem(STEP_STORAGE_KEY)
-            window.location.reload()
-          }}
-          primaryClassName="bg-gradient-to-r from-blue-500 to-purple-500 text-white"
-        />
-      </GameCard>
-                {resultsCopy.sections.universities}
-              </h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {(aiResults?.data?.linksData?.universities || [
-                  {
-                    name: "University of Toronto",
-                    country: "Canada",
-                    match: "95%",
-                    tuition: "$45,000/year",
-                    scholarships: "Available",
-                    reason: "Perfect match for AI/ML programs with strong research focus",
-                    mainUrl: "https://www.utoronto.ca",
-                    applicationUrl: "https://www.ouac.on.ca/guide/omsas-application-guide/"
-                  },
-                  {
-                    name: "Technical University of Munich",
-                    country: "Germany", 
-                    match: "92%",
-                    tuition: "€500/semester",
-                    scholarships: "DAAD Available",
-                    reason: "Excellent CS program with low tuition costs",
-                    mainUrl: "https://www.tum.de/en/",
-                    applicationUrl: "https://www.tum.de/en/studies/application-and-acceptance/"
-                  },
-                  {
-                    name: "University of Amsterdam",
-                    country: "Netherlands",
-                    match: "88%", 
-                    tuition: "€2,200/year",
-                    scholarships: "Holland Scholarship",
-                    reason: "Strong international community and AI research",
-                    mainUrl: "https://www.uva.nl/en",
-                    applicationUrl: "https://www.uva.nl/en/programmes/masters"
-                  }
-                ]).map((uni, index) => (
-                  <motion.div
-                    key={index}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: index * 0.2 }}
-                  >
-                    <GameCard className="h-full">
-                      <div className="flex items-center justify-between mb-4">
-                        <GraduationCap className="w-8 h-8 text-blue-400" />
-                        <div className="bg-green-500 text-white px-3 py-1 rounded-full text-sm font-bold">
-                          {t('results.universities.match', { value: uni.matchPercentage || uni.match })}
-                        </div>
                       </div>
-                      <h3 className="font-bold text-white text-lg mb-2">{uni.name}</h3>
-                      <p className="text-gray-300 mb-4">{uni.country}</p>
-                      <div className="space-y-2 mb-4">
-                        <div className="flex items-center text-sm text-gray-300">
-                          <DollarSign className="w-4 h-4 mr-2" />
-                          {uni.tuition}
-                        </div>
-                        <div className="flex items-center text-sm text-gray-300">
-                          <Award className="w-4 h-4 mr-2" />
-                          {uni.scholarships}
-                        </div>
-                      </div>
-                      <p className="text-sm text-gray-400 mb-4">{uni.reason}</p>
-                      <div className="space-y-2">
-                        <motion.button
-                          whileHover={{ scale: 1.02 }}
-                          whileTap={{ scale: 0.98 }}
-                          onClick={() => window.open(uni.websiteUrl || uni.mainUrl || '#', '_blank')}
-                          className="w-full bg-blue-500 hover:bg-blue-600 text-white py-2 rounded-lg text-sm font-semibold transition-colors cursor-pointer"
-                        >
-                          <ExternalLink className="inline w-4 h-4 mr-2" />
-                          {resultsCopy.buttons.visitWebsite}
-                        </motion.button>
-                        <motion.button
-                          whileHover={{ scale: 1.02 }}
-                          whileTap={{ scale: 0.98 }}
-                          onClick={() => window.open(uni.applicationUrl || uni.applyUrl || '#', '_blank')}
-                          className="w-full bg-purple-500 hover:bg-purple-600 text-white py-2 rounded-lg text-sm font-semibold transition-colors cursor-pointer"
-                        >
-                          <FileText className="inline w-4 h-4 mr-2" />
-                          {resultsCopy.buttons.applyNow}
-                        </motion.button>
-                      </div>
-                    </GameCard>
-                  </motion.div>
-                ))}
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <div className="flex justify-center space-x-4 text-sm mb-4">
+                <div className="bg-blue-500/20 px-4 py-2 rounded-full">
+                  <Trophy className="inline w-4 h-4 mr-2" />
+                  {heroLevel}
+                </div>
+                <div className="bg-purple-500/20 px-4 py-2 rounded-full">
+                  <Star className="inline w-4 h-4 mr-2" />
+                  {heroXp}
+                </div>
               </div>
-            </div>
+              <StepNavigation
+                showBack
+                backLabel={navigationCopy.edit}
+                backIcon={Edit3}
+                onBack={() => jumpToStep(1)}
+                primaryLabel={resultsCopy.actions.startNew}
+                primaryIcon={Rocket}
+                onPrimary={() => {
+                  window.localStorage.removeItem(FORM_STORAGE_KEY)
+                  window.localStorage.removeItem(STEP_STORAGE_KEY)
+                  window.location.reload()
+                }}
+                primaryClassName="bg-gradient-to-r from-blue-500 to-purple-500 text-white"
+              />
+            </GameCard>
+
+            {/* Universities Section - From AI Results */}
+            {universityMatches.length > 0 && (
+              <div>
+                <h2 className="game-font text-2xl font-bold text-white mb-6 text-center">
+                  {resultsCopy.sections.universities}
+                </h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {universityMatches.map((uni, index) => (
+                    <motion.div
+                      key={index}
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: index * 0.2 }}
+                    >
+                      <GameCard className="h-full">
+                        <div className="flex items-center justify-between mb-4">
+                          <GraduationCap className="w-8 h-8 text-blue-400" />
+                          <div className="bg-green-500 text-white px-3 py-1 rounded-full text-sm font-bold">
+                            {t('results.universities.match', { value: uni.matchPercentage || uni.match })}
+                          </div>
+                        </div>
+                        <h3 className="font-bold text-white text-lg mb-2">{uni.name}</h3>
+                        <p className="text-gray-300 mb-4">{uni.country}</p>
+                        <div className="space-y-2 mb-4">
+                          <div className="flex items-center text-sm text-gray-300">
+                            <DollarSign className="w-4 h-4 mr-2" />
+                            {uni.tuition}
+                          </div>
+                          <div className="flex items-center text-sm text-gray-300">
+                            <Award className="w-4 h-4 mr-2" />
+                            {uni.scholarships}
+                          </div>
+                        </div>
+                        <p className="text-sm text-gray-400 mb-4">{uni.reason}</p>
+                        <div className="space-y-2">
+                          <motion.button
+                            whileHover={{ scale: 1.02 }}
+                            whileTap={{ scale: 0.98 }}
+                            onClick={() => window.open(uni.websiteUrl || uni.mainUrl || '#', '_blank')}
+                            className="w-full bg-blue-500 hover:bg-blue-600 text-white py-2 rounded-lg text-sm font-semibold transition-colors cursor-pointer"
+                          >
+                            <ExternalLink className="inline w-4 h-4 mr-2" />
+                            {resultsCopy.buttons.visitWebsite}
+                          </motion.button>
+                          <motion.button
+                            whileHover={{ scale: 1.02 }}
+                            whileTap={{ scale: 0.98 }}
+                            onClick={() => window.open(uni.applicationUrl || uni.applyUrl || '#', '_blank')}
+                            className="w-full bg-purple-500 hover:bg-purple-600 text-white py-2 rounded-lg text-sm font-semibold transition-colors cursor-pointer"
+                          >
+                            <FileText className="inline w-4 h-4 mr-2" />
+                            {resultsCopy.buttons.applyNow}
+                          </motion.button>
+                        </div>
+                      </GameCard>
+                    </motion.div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* Scholarships Section - From AI Results */}
-            <div>
-              <h2 className="game-font text-2xl font-bold text-white mb-6 text-center">
-                {resultsCopy.sections.scholarships}
-              </h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {(aiResults?.data?.linksData?.scholarships || [
-                  {
-                    name: "Vanier Canada Graduate Scholarships",
-                    provider: "Government of Canada",
-                    amount: "$50,000/year",
-                    deadline: "November 2024",
-                    probability: "High",
-                    description: "For doctoral students demonstrating leadership and high research potential",
-                    applyUrl: "https://www.nserc-crsng.gc.ca/Students-Etudiants/PG-CS/CGSD-BESCD_eng.asp"
-                  },
-                  {
-                    name: "DAAD Scholarships",
-                    provider: "German Academic Exchange Service",
-                    amount: "€1,200/month",
-                    deadline: "October 2024",
-                    probability: "Very High",
-                    description: "For international students pursuing Master's in Germany",
-                    applyUrl: "https://www.daad.de/en/study-and-research-in-germany/scholarships/"
-                  },
-                  {
-                    name: "Holland Scholarship",
-                    provider: "Dutch Government",
-                    amount: "€5,000",
-                    deadline: "February 2025",
-                    probability: "High",
-                    description: "For non-EEA students studying in the Netherlands",
-                    applyUrl: "https://www.studyinholland.nl/finances/scholarships-grants/holland-scholarship"
-                  }
-                ]).map((scholarship, index) => (
-                  <motion.div
-                    key={index}
-                    initial={{ opacity: 0, x: index % 2 === 0 ? -20 : 20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: index * 0.3 }}
-                  >
-                    <GameCard className="h-full">
-                      <div className="flex items-center justify-between mb-4">
-                        <div className="bg-gradient-to-r from-yellow-400 to-orange-500 text-white px-4 py-2 rounded-full font-bold">
-                          {scholarship.amount}
+            {scholarshipMatches.length > 0 && (
+              <div>
+                <h2 className="game-font text-2xl font-bold text-white mb-6 text-center">
+                  {resultsCopy.sections.scholarships}
+                </h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {scholarshipMatches.map((scholarship, index) => (
+                    <motion.div
+                      key={index}
+                      initial={{ opacity: 0, x: index % 2 === 0 ? -20 : 20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: index * 0.3 }}
+                    >
+                      <GameCard className="h-full">
+                        <div className="flex items-center justify-between mb-4">
+                          <div className="bg-gradient-to-r from-yellow-400 to-orange-500 text-white px-4 py-2 rounded-full font-bold">
+                            {scholarship.amount}
+                          </div>
+                          <div className={`px-3 py-1 rounded-full text-sm font-bold ${
+                            scholarship.probability === 'Very High' ? 'bg-green-500 text-white' :
+                            scholarship.probability === 'High' ? 'bg-blue-500 text-white' :
+                            'bg-yellow-500 text-black'
+                          }`}>
+                            {t('results.scholarships.chance', { probability: scholarship.probability })}
+                          </div>
                         </div>
-                        <div className={`px-3 py-1 rounded-full text-sm font-bold ${
-                          scholarship.probability === 'Very High' ? 'bg-green-500 text-white' :
-                          scholarship.probability === 'High' ? 'bg-blue-500 text-white' :
-                          'bg-yellow-500 text-black'
-                        }`}>
-                          {t('results.scholarships.chance', { probability: scholarship.probability })}
+                        <h3 className="font-bold text-white text-lg mb-2">{scholarship.name}</h3>
+                        <p className="text-blue-400 mb-2">{scholarship.provider}</p>
+                        <div className="flex items-center text-sm text-gray-300 mb-4">
+                          <Clock className="w-4 h-4 mr-2" />
+                          {t('results.scholarships.deadline', { date: scholarship.deadline })}
                         </div>
-                      </div>
-                      <h3 className="font-bold text-white text-lg mb-2">{scholarship.name}</h3>
-                      <p className="text-blue-400 mb-2">{scholarship.provider}</p>
-                      <div className="flex items-center text-sm text-gray-300 mb-4">
-                        <Clock className="w-4 h-4 mr-2" />
-                        {t('results.scholarships.deadline', { date: scholarship.deadline })}
-                      </div>
-                      <p className="text-sm text-gray-400 mb-4">{scholarship.description}</p>
-                      <motion.button
-                        whileHover={{ scale: 1.02 }}
-                        whileTap={{ scale: 0.98 }}
-                        onClick={() => {
-                          const url = scholarship.applicationUrl || scholarship.applyUrl || scholarship.url || '#'
-                          console.log('Opening scholarship URL:', url, scholarship)
-                          window.open(url, '_blank')
-                        }}
-                        className="w-full bg-gradient-to-r from-yellow-400 to-orange-500 text-white py-2 rounded-lg font-semibold transition-all cursor-pointer"
-                      >
-                        <Award className="inline w-4 h-4 mr-2" />
-                        {resultsCopy.buttons.applyNow}
-                      </motion.button>
-                    </GameCard>
-                  </motion.div>
-                ))}
+                        <p className="text-sm text-gray-400 mb-4">{scholarship.description}</p>
+                        <motion.button
+                          whileHover={{ scale: 1.02 }}
+                          whileTap={{ scale: 0.98 }}
+                          onClick={() => {
+                            const url = scholarship.applicationUrl || scholarship.applyUrl || scholarship.url || '#'
+                            console.log('Opening scholarship URL:', url, scholarship)
+                            window.open(url, '_blank')
+                          }}
+                          className="w-full bg-gradient-to-r from-yellow-400 to-orange-500 text-white py-2 rounded-lg font-semibold transition-all cursor-pointer"
+                        >
+                          <Award className="inline w-4 h-4 mr-2" />
+                          {resultsCopy.buttons.applyNow}
+                        </motion.button>
+                      </GameCard>
+                    </motion.div>
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
 
             {/* Resources Section */}
-            <div>
-              <h2 className="game-font text-2xl font-bold text-white mb-6 text-center">
-                {resultsCopy.sections.resources}
-              </h2>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                {[
-                  { 
-                    name: resultsCopy.resources.sop, 
-                    icon: FileText, 
-                    color: "bg-blue-500",
-                    url: aiResults?.data?.linksData?.resources?.sopTools?.[0]?.url || "https://grammarly.com"
-                  },
-                  { 
-                    name: resultsCopy.resources.resume, 
-                    icon: User, 
-                    color: "bg-green-500",
-                    url: aiResults?.data?.linksData?.resources?.resumeBuilders?.[0]?.url || "https://canva.com/resumes"
-                  },
-                  { 
-                    name: resultsCopy.resources.testPrep, 
-                    icon: BookOpen, 
-                    color: "bg-purple-500",
-                    url: aiResults?.data?.linksData?.resources?.testPrep?.[0]?.url || "https://ielts.org"
-                  },
-                  { 
-                    name: resultsCopy.resources.forums, 
-                    icon: Users, 
-                    color: "bg-orange-500",
-                    url: aiResults?.data?.linksData?.resources?.forums?.[0]?.url || "https://reddit.com/r/gradadmissions"
-                  }
-                ].map((resource, index) => (
-                  <motion.div
-                    key={index}
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                    onClick={() => window.open(resource.url, '_blank')}
-                    className="cursor-pointer"
-                  >
-                    <GameCard className="text-center p-6">
-                      <div className={`w-12 h-12 mx-auto mb-3 ${resource.color} rounded-full flex items-center justify-center`}>
-                        <resource.icon className="w-6 h-6 text-white" />
-                      </div>
-                      <h3 className="text-white font-semibold text-sm">{resource.name}</h3>
-                    </GameCard>
-                  </motion.div>
-                ))}
+            {(resourceGroups?.sopTools?.length || resourceGroups?.resumeBuilders?.length || resourceGroups?.testPrep?.length || resourceGroups?.forums?.length) && (
+              <div>
+                <h2 className="game-font text-2xl font-bold text-white mb-6 text-center">
+                  {resultsCopy.sections.resources}
+                </h2>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  {[
+                    { name: resultsCopy.resources.sop, icon: FileText, color: 'bg-blue-500', list: resourceGroups.sopTools },
+                    { name: resultsCopy.resources.resume, icon: User, color: 'bg-green-500', list: resourceGroups.resumeBuilders },
+                    { name: resultsCopy.resources.testPrep, icon: BookOpen, color: 'bg-purple-500', list: resourceGroups.testPrep },
+                    { name: resultsCopy.resources.forums, icon: Users, color: 'bg-orange-500', list: resourceGroups.forums }
+                  ].map((resource, index) => (
+                    <motion.div
+                      key={index}
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
+                      onClick={() => {
+                        const url = resource.list?.[0]?.url
+                        if (url) window.open(url, '_blank')
+                      }}
+                      className="cursor-pointer"
+                    >
+                      <GameCard className="text-center p-6">
+                        <div className={`w-12 h-12 mx-auto mb-3 ${resource.color} rounded-full flex items-center justify-center`}>
+                          <resource.icon className="w-6 h-6 text-white" />
+                        </div>
+                        <h3 className="text-white font-semibold text-sm">{resource.name}</h3>
+                      </GameCard>
+                    </motion.div>
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
 
-             {/* Debug Section - Remove this after testing */}
-            {/*aiResults && (
+            {/* Timeline Section */}
+            {timelinePhases.length > 0 && (
+              <div>
+                <h2 className="game-font text-2xl font-bold text-white mb-6 text-center">{t('results.sections.timeline', '📅 Your Roadmap')}</h2>
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                  {timelinePhases.map((phase, index) => (
+                    <GameCard key={index} className="text-center">
+                      <p className="text-sm text-gray-400">{phase.phase}</p>
+                      <p className="text-white text-xl font-bold">{phase.duration}</p>
+                    </GameCard>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Debug Section - Remove this after testing */}
+            {aiResults && (
               <GameCard className="bg-gray-800/50">
                 <h3 className="text-white font-bold mb-2">{resultsCopy.debug.title}</h3>
                 <pre className="text-xs text-gray-300 overflow-auto max-h-40 bg-black/30 p-3 rounded">
                   {JSON.stringify(aiResults, null, 2)}
                 </pre>
               </GameCard>
+            )}
             )*/}
 
             {/* Action Buttons */}
