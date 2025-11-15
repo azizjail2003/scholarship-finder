@@ -408,6 +408,12 @@ function App() {
   const formPlaceholders = t('forms.placeholders', { returnObjects: true })
   const stepsCopy = t('steps', { returnObjects: true })
   const resultsCopy = t('results', { returnObjects: true })
+  const heroCopy = resultsCopy.hero || {}
+  const resultsSections = resultsCopy.sections || {}
+  const resultsResources = resultsCopy.resources || {}
+  const resultsActions = resultsCopy.actions || {}
+  const resultsButtons = resultsCopy.buttons || {}
+  const resultsChecklist = resultsCopy.checklist || {}
 
   const updateFormData = (field, value) => {
     setFormData(prev => ({ ...prev, [field]: value }))
@@ -857,7 +863,9 @@ function App() {
                   ))}
                 </div>
               ) : (
-                <p className="text-gray-400 mb-6">{resultsCopy.checklist.empty}</p>
+                <p className="text-gray-400 mb-6">
+                  {resultsCopy.checklist?.empty || t('results.checklist.empty', 'No checklist items yet')}
+                </p>
               )}
 
               <div className="flex justify-center space-x-4 text-sm mb-4">
