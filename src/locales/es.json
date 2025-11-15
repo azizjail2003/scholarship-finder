@@ -8,6 +8,10 @@
       "es": "Español"
     }
   },
+  "navigation": {
+    "back": "Regresar",
+    "edit": "Editar respuestas"
+  },
   "progress": {
     "level": "Nivel {{level}}",
     "xp": "{{xp}} XP",
