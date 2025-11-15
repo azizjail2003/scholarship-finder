@@ -814,14 +814,16 @@ function App() {
               >
                 <Star className="w-10 h-10 text-white" />
               </motion.div>
-              <h1 className="game-font text-4xl font-bold text-white mb-4">
-
-  return (
-    <div className="max-w-6xl mx-auto space-y-8">
-      {/* Hero Section */}
-      <GameCard className="text-center">
-        <motion.div
-          animate={{ rotate: [0, 360] }}
+              <h1 className="game-font text-4xl font-bold text-white mb-4">{heroTitle}</h1>
+              <p className="text-xl text-gray-300 mb-6">{heroDescription}</p>
+              {checklist.length > 0 && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-left mb-6">
+                  {checklist.map((item, index) => (
+                    <div key={index} className="flex items-start space-x-3">
+                      <CheckCircle className={`w-5 h-5 mt-1 ${item.status === 'completed' ? 'text-green-400' : 'text-yellow-400'}`} />
+                      <div>
+                        <p className="text-white font-semibold">{item.item}</p>
+                        <p className="text-sm text-gray-300">{item.status} • {item.urgency}</p>
                       </div>
                     </div>
                   ))}
@@ -954,7 +956,6 @@ function App() {
                           whileTap={{ scale: 0.98 }}
                           onClick={() => {
                             const url = scholarship.applicationUrl || scholarship.applyUrl || scholarship.url || '#'
-                            console.log('Opening scholarship URL:', url, scholarship)
                             window.open(url, '_blank')
                           }}
                           className="w-full bg-gradient-to-r from-yellow-400 to-orange-500 text-white py-2 rounded-lg font-semibold transition-all cursor-pointer"
@@ -1018,17 +1019,6 @@ function App() {
                 </div>
               </div>
             )}
-
-            {/* Debug Section - Remove this after testing */}
-            {aiResults && (
-              <GameCard className="bg-gray-800/50">
-                <h3 className="text-white font-bold mb-2">{resultsCopy.debug.title}</h3>
-                <pre className="text-xs text-gray-300 overflow-auto max-h-40 bg-black/30 p-3 rounded">
-                  {JSON.stringify(aiResults, null, 2)}
-                </pre>
-              </GameCard>
-            )}
-            )*/}
 
             {/* Action Buttons */}
             <GameCard className="text-center">
