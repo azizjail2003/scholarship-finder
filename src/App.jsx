@@ -324,6 +324,29 @@ const computeProgress = (targetIndex) => {
   return { boundedIndex, xpValue, levelValue }
 }
 
+const safeParseJSON = (value, fallback) => {
+  if (value == null) return fallback
+  if (typeof value === 'string') {
+    try {
+      return JSON.parse(value)
+    } catch (error) {
+      console.warn('Failed to parse JSON value', value, error)
+      return fallback
+    }
+  }
+  return value
+}
+
+const ensureArray = (value, fallback = []) => {
+  const parsed = safeParseJSON(value, fallback)
+  return Array.isArray(parsed) ? parsed : fallback
+}
+
+const ensureObject = (value, fallback = {}) => {
+  const parsed = safeParseJSON(value, fallback)
+  return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : fallback
+}
+
 function App() {
   const { t, i18n } = useTranslation()
   const storedFormData = useMemo(() => getStoredFormData(), [])
@@ -345,6 +368,14 @@ function App() {
     ...storedFormData,
     languagePreference: initialLanguage
   }))
+  const parsedResults = ensureObject(aiResults?.data, {})
+  const recommendationData = ensureObject(parsedResults.recommendations, {})
+  const linkData = ensureObject(parsedResults.linksData, {})
+  const checklistItems = ensureArray(recommendationData.checklist)
+  const timelinePhases = ensureArray(recommendationData.timeline)
+  const universities = ensureArray(linkData.universities)
+  const scholarships = ensureArray(linkData.scholarships)
+  const resourceGroups = ensureObject(linkData.resources)
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -793,15 +824,10 @@ function App() {
         )
 
       case 'results': {
-        const heroTitle = aiResults?.data?.recommendations?.hero?.title || t('results.hero.title', { name: formData.name })
-        const heroDescription = aiResults?.data?.recommendations?.hero?.description || resultsCopy.hero.description
-        const checklist = aiResults?.data?.recommendations?.checklist || []
-        const timelinePhases = aiResults?.data?.recommendations?.timeline || []
+        const heroTitle = recommendationData.hero?.title || t('results.hero.title', { name: formData.name })
+        const heroDescription = recommendationData.hero?.description || resultsCopy.hero.description
         const heroLevel = t('results.hero.level', { level })
         const heroXp = t('results.hero.xp', { xp })
-        const universityMatches = aiResults?.data?.linksData?.universities || []
-        const scholarshipMatches = aiResults?.data?.linksData?.scholarships || []
-        const resourceGroups = aiResults?.data?.linksData?.resources || {}
 
         return (
           <div className="max-w-6xl mx-auto space-y-8">
@@ -816,18 +842,22 @@ function App() {
               </motion.div>
               <h1 className="game-font text-4xl font-bold text-white mb-4">{heroTitle}</h1>
               <p className="text-xl text-gray-300 mb-6">{heroDescription}</p>
-              {checklist.length > 0 && (
+              {checklistItems.length > 0 ? (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-left mb-6">
-                  {checklist.map((item, index) => (
+                  {checklistItems.map((item, index) => (
                     <div key={index} className="flex items-start space-x-3">
                       <CheckCircle className={`w-5 h-5 mt-1 ${item.status === 'completed' ? 'text-green-400' : 'text-yellow-400'}`} />
                       <div>
                         <p className="text-white font-semibold">{item.item}</p>
-                        <p className="text-sm text-gray-300">{item.status} • {item.urgency}</p>
+                        <p className="text-sm text-gray-300">
+                          {t('results.checklist.status', { status: item.status })} • {t('results.checklist.urgency', { urgency: item.urgency })}
+                        </p>
                       </div>
                     </div>
                   ))}
                 </div>
+              ) : (
+                <p className="text-gray-400 mb-6">{resultsCopy.checklist.empty}</p>
               )}
 
               <div className="flex justify-center space-x-4 text-sm mb-4">
@@ -857,13 +887,13 @@ function App() {
             </GameCard>
 
             {/* Universities Section - From AI Results */}
-            {universityMatches.length > 0 && (
+            {universities.length > 0 && (
               <div>
                 <h2 className="game-font text-2xl font-bold text-white mb-6 text-center">
                   {resultsCopy.sections.universities}
                 </h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {universityMatches.map((uni, index) => (
+                  {universities.map((uni, index) => (
                     <motion.div
                       key={index}
                       initial={{ opacity: 0, y: 20 }}
@@ -918,13 +948,13 @@ function App() {
             )}
 
             {/* Scholarships Section - From AI Results */}
-            {scholarshipMatches.length > 0 && (
+            {scholarships.length > 0 && (
               <div>
                 <h2 className="game-font text-2xl font-bold text-white mb-6 text-center">
                   {resultsCopy.sections.scholarships}
                 </h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {scholarshipMatches.map((scholarship, index) => (
+                  {scholarships.map((scholarship, index) => (
                     <motion.div
                       key={index}
                       initial={{ opacity: 0, x: index % 2 === 0 ? -20 : 20 }}
@@ -1012,6 +1042,9 @@ function App() {
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                   {timelinePhases.map((phase, index) => (
                     <GameCard key={index} className="text-center">
+                      <div className="flex items-center justify-center mb-2">
+                        <Clock className="w-5 h-5 text-yellow-400" />
+                      </div>
                       <p className="text-sm text-gray-400">{phase.phase}</p>
                       <p className="text-white text-xl font-bold">{phase.duration}</p>
                     </GameCard>
