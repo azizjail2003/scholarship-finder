@@ -1,0 +1,163 @@
+{
+  "languageSwitcher": {
+    "label": "Langue",
+    "options": {
+      "en": "Anglais",
+      "ar": "Arabe",
+      "fr": "Français",
+      "es": "Espagnol"
+    }
+  },
+  "progress": {
+    "level": "Niveau {{level}}",
+    "xp": "{{xp}} XP",
+    "quest": "Progression de la quête : {{current}}/{{total}}"
+  },
+  "achievement": {
+    "levelUpTitle": "Niveau supérieur !",
+    "levelUpDescription": "Vous avez atteint le niveau {{level}} !",
+    "stepCompleteTitle": "Étape terminée !",
+    "stepCompleteDescription": "{{stepTitle}} terminée ! +{{xp}} XP",
+    "questCompleteTitle": "Quête terminée !",
+    "questCompleteDescription": "Vos correspondances de bourses sont prêtes !"
+  },
+  "alerts": {
+    "questFailed": "Échec de la quête ! Veuillez réessayer."
+  },
+  "forms": {
+    "selectPlaceholder": "Sélectionner...",
+    "fields": {
+      "name": "Nom complet",
+      "email": "Adresse e-mail",
+      "age": "Âge",
+      "nationality": "Nationalité",
+      "currentEducation": "Niveau d'études actuel",
+      "gpa": "Moyenne / GPA",
+      "englishLevel": "Niveau d'anglais",
+      "fieldOfInterest": "Domaine d'intérêt",
+      "targetDegree": "Diplôme visé",
+      "budget": "Budget / Besoin de financement",
+      "workExperience": "Expérience professionnelle",
+      "achievements": "Réalisations et récompenses",
+      "targetCountries": "Pays / régions ciblés",
+      "preferences": "Préférences supplémentaires"
+    },
+    "placeholders": {
+      "name": "Jean Dupont",
+      "email": "jean@example.com",
+      "age": "22",
+      "nationality": "Maroc",
+      "currentEducation": "Licence en informatique",
+      "gpa": "3.7 / 4.0 ou 85%",
+      "englishLevel": "IELTS 7.5 / TOEFL 100",
+      "fieldOfInterest": "Intelligence artificielle et apprentissage automatique",
+      "targetCountries": "Europe, Amérique du Nord, Canada",
+      "preferences": "ex. : Opportunités de recherche, travail à temps partiel, universités spécifiques",
+      "workExperience": "ex. : 2 ans comme développeur chez XYZ",
+      "achievements": "ex. : Articles publiés, hackathon gagné, tableau d'honneur"
+    },
+    "options": {
+      "degrees": {
+        "bachelor": "Licence",
+        "master": "Master",
+        "phd": "Doctorat",
+        "diploma": "Diplôme"
+      },
+      "budget": {
+        "full": "Bourse complète nécessaire",
+        "partial": "Bourse partielle (50-75%)",
+        "contribute": "Peut payer 25-50%",
+        "selfFund": "Peut s'autofinancer"
+      }
+    }
+  },
+  "steps": {
+    "welcome": {
+      "title": "Bienvenue, érudit !",
+      "subtitle": "Commencez votre quête de connaissances",
+      "headline": "🎓 Quête de bourse",
+      "description": "Partez pour une aventure épique afin de trouver la bourse parfaite ! Terminez des quêtes, gagnez de l'XP et débloquez votre avenir académique.",
+      "button": "Commencer la quête"
+    },
+    "personal": {
+      "title": "Informations personnelles",
+      "subtitle": "Parlez-nous de vous",
+      "description": "Apprenons à vous connaître, futur(e) boursier(e) !",
+      "button": "Continuer la quête"
+    },
+    "education": {
+      "title": "Parcours académique",
+      "subtitle": "Votre formation",
+      "description": "Montrez-nous vos réussites académiques !",
+      "button": "Continuer la quête"
+    },
+    "goals": {
+      "title": "Objectifs futurs",
+      "subtitle": "Où voulez-vous aller ?",
+      "description": "Définissez votre destination académique !",
+      "button": "Continuer la quête"
+    },
+    "experience": {
+      "title": "Expérience et compétences",
+      "subtitle": "Montrez vos réussites",
+      "description": "Mettez en avant vos expériences et vos réalisations !",
+      "button": "Continuer la quête"
+    },
+    "preferences": {
+      "title": "Préférences",
+      "subtitle": "Personnalisez votre recherche",
+      "description": "Affinez votre recherche de bourses !",
+      "button": "Terminer la quête"
+    },
+    "complete": {
+      "title": "🎉 Quête terminée !",
+      "subtitle": "Analyse de votre profil...",
+      "description": "Félicitations ! Vous avez terminé votre quête de bourses. Prêt(e) à découvrir vos correspondances ?",
+      "button": "Découvrir mes correspondances",
+      "loadingTitle": "🤖 L'IA analyse votre profil...",
+      "loadingDescription": "Notre IA trouve les bourses et universités parfaites pour vous !"
+    },
+    "results": {
+      "title": "Vos correspondances !",
+      "subtitle": "Découvrez vos opportunités idéales"
+    }
+  },
+  "results": {
+    "hero": {
+      "title": "🎉 Vos correspondances parfaites, {{name}} !",
+      "description": "Notre IA a analysé votre profil et trouvé des opportunités taillées sur mesure pour vous !",
+      "level": "Chercheur niveau {{level}}",
+      "xp": "{{xp}} XP gagnés"
+    },
+    "sections": {
+      "universities": "🏛️ Meilleures universités",
+      "scholarships": "💰 Meilleures bourses",
+      "resources": "🛠️ Ressources utiles"
+    },
+    "universities": {
+      "match": "Correspondance {{value}}"
+    },
+    "scholarships": {
+      "deadline": "Date limite : {{date}}",
+      "chance": "Chance {{probability}}"
+    },
+    "buttons": {
+      "visitWebsite": "Visiter le site",
+      "applyNow": "Postuler maintenant"
+    },
+    "resources": {
+      "sop": "Outils de lettre de motivation",
+      "resume": "Créateurs de CV",
+      "testPrep": "Préparation aux tests",
+      "forums": "Forums étudiants"
+    },
+    "actions": {
+      "title": "Prêt pour votre prochaine quête ?",
+      "startNew": "Commencer une nouvelle quête",
+      "viewGuide": "Voir le guide complet"
+    },
+    "debug": {
+      "title": "🔍 Debug : données IA"
+    }
+  }
+}
