@@ -318,13 +318,11 @@ function App() {
     }
   }
 
-  const webhookUrl = import.meta.env.VITE_WEBHOOK_URL || 'http://localhost:5680/webhook/scholarship-finder'
-
   const submitForm = async () => {
     setIsSubmitting(true)
     
     try {
-      const response = await fetch(webhookUrl, {
+      const response = await fetch(import.meta.env.VITE_WEBHOOK_URL || 'http://localhost:5680/webhook/scholarship-finder', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
