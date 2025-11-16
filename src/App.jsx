@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import Confetti from 'react-confetti'
 import { useTranslation } from 'react-i18next'
+import { jsPDF } from 'jspdf'
 import {
   Trophy,
   Star,
@@ -36,7 +37,7 @@ const languageOptions = ['en', 'fr', 'es', 'ar']
 const degreeOptionValues = {
   bachelor: "Bachelor's",
   master: "Master's",
-  phd: "PhD",
+  phd: 'PhD',
   diploma: 'Diploma'
 }
 
@@ -151,9 +152,7 @@ const GameProgress = ({ currentStep, totalSteps, xp, level, labels }) => {
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center space-x-2">
             <Trophy className="w-5 h-5 text-game-gold" />
-            <span className="game-font text-white font-bold">
-              {labels.level}
-            </span>
+            <span className="game-font text-white font-bold">{labels.level}</span>
           </div>
           <div className="flex items-center space-x-2">
             <Star className="w-4 h-4 text-game-gold" />
@@ -168,9 +167,7 @@ const GameProgress = ({ currentStep, totalSteps, xp, level, labels }) => {
             transition={{ duration: 0.5 }}
           />
         </div>
-        <div className="text-center text-sm text-gray-300">
-          {labels.quest}
-        </div>
+        <div className="text-center text-sm text-gray-300">{labels.quest}</div>
       </div>
     </div>
   )
@@ -183,6 +180,8 @@ const Achievement = ({ title, description, icon: Icon, show, onHide }) => {
       return () => clearTimeout(timer)
     }
   }, [show, onHide])
+
+  if (!Icon) return null
 
   return (
     <AnimatePresence>
@@ -286,9 +285,7 @@ const steps = [
 
 const calculateXpForStep = (stepIndex) => {
   const boundedIndex = Math.min(Math.max(stepIndex, 0), steps.length)
-  return steps
-    .slice(0, boundedIndex)
-    .reduce((total, step) => total + step.xpReward, 0)
+  return steps.slice(0, boundedIndex).reduce((total, step) => total + step.xpReward, 0)
 }
 
 const getLevelFromXp = (xpValue) => Math.floor(xpValue / 500) + 1
@@ -307,8 +304,7 @@ const defaultFormData = {
   workExperience: '2 years as Junior Software Developer at XYZ Tech.',
   achievements: "Published 1 research paper, won local AI hackathon, Dean's list",
   targetCountries: 'Canada, Germany, Netherlands',
-  preferences:
-    'Strong research focus, part-time work allowed, preference for medium-sized universities.',
+  preferences: 'Strong research focus, part-time work allowed, preference for medium-sized universities.',
   languagePreference: 'en'
 }
 
@@ -370,9 +366,7 @@ const ensureArray = (value, fallback = []) => {
 
 const ensureObject = (value, fallback = {}) => {
   const parsed = safeParseJSON(value, fallback)
-  return parsed && typeof parsed === 'object' && !Array.isArray(parsed)
-    ? parsed
-    : fallback
+  return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : fallback
 }
 
 function App() {
@@ -380,10 +374,7 @@ function App() {
   const storedFormData = useMemo(() => getStoredFormData(), [])
   const storedStep = useMemo(() => getStoredStep(), [])
   const initialLanguage = storedFormData.languagePreference || i18n.language || 'en'
-  const initialProgress = useMemo(
-    () => computeProgress(storedStep),
-    [storedStep]
-  )
+  const initialProgress = useMemo(() => computeProgress(storedStep), [storedStep])
 
   const [currentStep, setCurrentStep] = useState(storedStep)
   const [xp, setXp] = useState(initialProgress.xpValue)
@@ -400,24 +391,16 @@ function App() {
     languagePreference: initialLanguage
   }))
 
-  // aiResults may either be the whole object or wrapped in a .data field
-  const parsedResults = ensureObject(aiResults?.data ?? aiResults, {})
-  const linkData = ensureObject(parsedResults.linksData, {})
-
+  // Normalize the AI result based on your real response shape:
+  // {
+  //   success, message, data: { universities, scholarships, resources, applicationChecklist, ... }
+  // }
+  const parsedResults = ensureObject(aiResults, {})
+  const universities = ensureArray(parsedResults.universities)
+  const scholarships = ensureArray(parsedResults.scholarships)
+  const resourceGroups = ensureObject(parsedResults.resources)
   const checklistItems = ensureArray(parsedResults.applicationChecklist?.documents)
   const timelinePhases = ensureArray(parsedResults.applicationChecklist?.timeline)
-
-  // universities / scholarships may be in linksData (old) or directly in `data` (new)
-  const universities = ensureArray(
-    linkData.universities || parsedResults.universities
-  )
-  const scholarships = ensureArray(
-    linkData.scholarships || parsedResults.scholarships
-  )
-  const resourceGroups = ensureObject(
-    linkData.resources || parsedResults.resources || {},
-    {}
-  )
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -438,18 +421,14 @@ function App() {
   }
 
   const selectPlaceholderText = t('forms.selectPlaceholder')
-  const degreeOptionsList = Object.entries(degreeOptionValues).map(
-    ([key, value]) => ({
-      value,
-      label: t(`forms.options.degrees.${key}`)
-    })
-  )
-  const budgetOptionsList = Object.entries(budgetOptionValues).map(
-    ([key, value]) => ({
-      value,
-      label: t(`forms.options.budget.${key}`)
-    })
-  )
+  const degreeOptionsList = Object.entries(degreeOptionValues).map(([key, value]) => ({
+    value,
+    label: t(`forms.options.degrees.${key}`)
+  }))
+  const budgetOptionsList = Object.entries(budgetOptionValues).map(([key, value]) => ({
+    value,
+    label: t(`forms.options.budget.${key}`)
+  }))
   const formLabels = t('forms.fields', { returnObjects: true })
   const formPlaceholders = t('forms.placeholders', { returnObjects: true })
   const stepsCopy = t('steps', { returnObjects: true })
@@ -498,7 +477,7 @@ function App() {
       setXp(newXp)
       setLevel(newLevel)
 
-      if (currentStep > 0) {
+      if (currentStep > 0 && completedStep) {
         showAchievementPopup(
           t('achievement.stepCompleteTitle'),
           t('achievement.stepCompleteDescription', {
@@ -522,8 +501,7 @@ function App() {
 
     try {
       const response = await fetch(
-        import.meta.env.VITE_WEBHOOK_URL ||
-          'http://localhost:5680/webhook/scholarship-finder',
+        import.meta.env.VITE_WEBHOOK_URL || 'http://localhost:5680/webhook/scholarship-finder',
         {
           method: 'POST',
           headers: {
@@ -537,46 +515,22 @@ function App() {
         throw new Error(`HTTP error! status: ${response.status}`)
       }
 
-      const text = await response.text()
-      if (!text) {
-        throw new Error('Empty response from server')
-      }
-
-      let raw
-      try {
-        raw = JSON.parse(text)
-      } catch (err) {
-        console.error('Invalid JSON from server:', text)
-        throw err
-      }
-
+      const raw = await response.json()
       let core = raw
 
-      // n8n may return:
-      // - [ {...} ]
-      // - { success, data: [...] }
-      // - { success, data: {...} }
+      // n8n may return array or object; your actual response is an object with .data
       if (Array.isArray(core)) {
         core = core[0] || {}
-      } else if (core && typeof core === 'object') {
-        if (Array.isArray(core.data)) {
-          core = core.data[0] || {}
-        } else if (core.data && typeof core.data === 'object') {
-          core = core.data
-        }
+      }
+      if (core && typeof core === 'object' && core.data && typeof core.data === 'object') {
+        core = core.data
       }
 
       if (!core || typeof core !== 'object') {
         throw new Error('Unexpected response format from server')
       }
 
-      // Keep the full raw object, but ensure `data` points at the normalized core
-      const normalized = {
-        ...raw,
-        data: core
-      }
-
-      setAiResults(normalized)
+      setAiResults(core)
 
       showAchievementPopup(
         t('achievement.questCompleteTitle'),
@@ -586,7 +540,7 @@ function App() {
       setShowConfetti(true)
 
       setTimeout(() => {
-        nextStep()
+        jumpToStep(steps.findIndex((s) => s.id === 'results'))
       }, 2000)
     } catch (error) {
       console.error('Submission error:', error)
@@ -595,6 +549,141 @@ function App() {
     } finally {
       setIsSubmitting(false)
     }
+  }
+
+  // Helpers for checklist display so we don't show i18n keys
+  const formatStatus = (status) => {
+    if (status === 'completed') return 'Completed'
+    if (status === 'pending') return 'Pending'
+    return status ? status.charAt(0).toUpperCase() + status.slice(1) : ''
+  }
+
+  const formatUrgency = (urgency) => {
+    if (urgency === 'high') return 'High priority'
+    if (urgency === 'medium') return 'Medium priority'
+    if (urgency === 'low') return 'Low priority'
+    return urgency ? urgency.charAt(0).toUpperCase() + urgency.slice(1) : ''
+  }
+
+  // Download PDF report based on the current results
+  const handleDownloadPdf = () => {
+    if (!universities.length && !scholarships.length && !checklistItems.length) {
+      alert('No results available to generate a report yet.')
+      return
+    }
+
+    const doc = new jsPDF()
+    let y = 20
+
+    // Title
+    doc.setFontSize(18)
+    doc.text('Scholarship Quest Report', 10, y)
+    y += 10
+
+    // Basic profile
+    doc.setFontSize(12)
+    doc.text(`Name: ${formData.name || ''}`, 10, y)
+    y += 6
+    doc.text(`Email: ${formData.email || ''}`, 10, y)
+    y += 6
+    doc.text(`Field of Interest: ${formData.fieldOfInterest || ''}`, 10, y)
+    y += 6
+    doc.text(`Target Degree: ${formData.targetDegree || ''}`, 10, y)
+    y += 10
+
+    // Universities
+    if (universities.length) {
+      doc.setFontSize(14)
+      doc.text('Recommended Universities', 10, y)
+      y += 8
+      doc.setFontSize(11)
+
+      universities.forEach((uni, index) => {
+        if (y > 270) {
+          doc.addPage()
+          y = 20
+        }
+        doc.text(`${index + 1}. ${uni.name}`, 10, y)
+        y += 5
+        doc.text(`   Location: ${uni.city}, ${uni.country}`, 10, y)
+        y += 5
+        doc.text(`   Match: ${uni.matchPercentage || uni.match || 'N/A'}`, 10, y)
+        y += 5
+        doc.text(`   Tuition: ${uni.tuition || 'N/A'}`, 10, y)
+        y += 5
+        doc.text(`   Scholarship: ${uni.scholarships || 'N/A'}`, 10, y)
+        y += 5
+        doc.text(`   Deadline: ${uni.deadline || 'N/A'}`, 10, y)
+        y += 7
+      })
+
+      y += 5
+    }
+
+    // Scholarships
+    if (scholarships.length) {
+      if (y > 260) {
+        doc.addPage()
+        y = 20
+      }
+      doc.setFontSize(14)
+      doc.text('Scholarship Programs', 10, y)
+      y += 8
+      doc.setFontSize(11)
+
+      scholarships.forEach((sch, index) => {
+        if (y > 270) {
+          doc.addPage()
+          y = 20
+        }
+        doc.text(`${index + 1}. ${sch.name}`, 10, y)
+        y += 5
+        doc.text(`   Provider: ${sch.provider || ''}`, 10, y)
+        y += 5
+        doc.text(`   Amount: ${sch.amount || ''}`, 10, y)
+        y += 5
+        doc.text(`   Deadline: ${sch.deadline || ''}`, 10, y)
+        y += 5
+        doc.text(`   Probability: ${sch.probability || ''}`, 10, y)
+        y += 5
+        if (sch.description) {
+          const lines = doc.splitTextToSize(`   ${sch.description}`, 180)
+          lines.forEach((line) => {
+            if (y > 270) {
+              doc.addPage()
+              y = 20
+            }
+            doc.text(line, 10, y)
+            y += 5
+          })
+        }
+        y += 5
+      })
+    }
+
+    // Checklist summary
+    if (checklistItems.length) {
+      if (y > 260) {
+        doc.addPage()
+        y = 20
+      }
+      doc.setFontSize(14)
+      doc.text('Application Checklist', 10, y)
+      y += 8
+      doc.setFontSize(11)
+
+      checklistItems.forEach((item) => {
+        if (y > 270) {
+          doc.addPage()
+          y = 20
+        }
+        const line = `${item.item} – ${formatStatus(item.status)} (${formatUrgency(item.urgency)})`
+        doc.text(line, 10, y)
+        y += 6
+      })
+    }
+
+    doc.save('scholarship-report.pdf')
   }
 
   const renderStepContent = () => {
@@ -612,12 +701,8 @@ function App() {
             >
               <Rocket className="w-12 h-12 text-white" />
             </motion.div>
-            <h1 className="game-font text-4xl font-bold text-white mb-4">
-              {stepCopy.headline}
-            </h1>
-            <p className="text-xl text-gray-300 mb-8">
-              {stepCopy.description}
-            </p>
+            <h1 className="game-font text-4xl font-bold text-white mb-4">{stepCopy.headline}</h1>
+            <p className="text-xl text-gray-300 mb-8">{stepCopy.description}</p>
             <StepNavigation
               showBack={false}
               primaryLabel={stepCopy.button}
@@ -632,12 +717,10 @@ function App() {
           <GameCard className="max-w-2xl mx-auto">
             <div className="text-center mb-8">
               <User className="w-16 h-16 mx-auto mb-4 text-blue-400" />
-              <h2 className="game-font text-3xl font-bold text-white mb-2">
-                {stepCopy.title}
-              </h2>
+              <h2 className="game-font text-3xl font-bold text-white mb-2">{stepCopy.title}</h2>
               <p className="text-gray-300">{stepCopy.description}</p>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 md-grid-cols-2 gap-6">
               <GameInput
                 icon={User}
                 label={formLabels.name}
@@ -689,9 +772,7 @@ function App() {
           <GameCard className="max-w-2xl mx-auto">
             <div className="text-center mb-8">
               <GraduationCap className="w-16 h-16 mx-auto mb-4 text-blue-400" />
-              <h2 className="game-font text-3xl font-bold text-white mb-2">
-                {stepCopy.title}
-              </h2>
+              <h2 className="game-font text-3xl font-bold text-white mb-2">{stepCopy.title}</h2>
               <p className="text-gray-300">{stepCopy.description}</p>
             </div>
             <div className="space-y-6">
@@ -738,9 +819,7 @@ function App() {
           <GameCard className="max-w-2xl mx-auto">
             <div className="text-center mb-8">
               <Target className="w-16 h-16 mx-auto mb-4 text-blue-400" />
-              <h2 className="game-font text-3xl font-bold text-white mb-2">
-                {stepCopy.title}
-              </h2>
+              <h2 className="game-font text-3xl font-bold text-white mb-2">{stepCopy.title}</h2>
               <p className="text-gray-300">{stepCopy.description}</p>
             </div>
             <div className="space-y-6">
@@ -791,9 +870,7 @@ function App() {
           <GameCard className="max-w-2xl mx-auto">
             <div className="text-center mb-8">
               <Award className="w-16 h-16 mx-auto mb-4 text-blue-400" />
-              <h2 className="game-font text-3xl font-bold text-white mb-2">
-                {stepCopy.title}
-              </h2>
+              <h2 className="game-font text-3xl font-bold text-white mb-2">{stepCopy.title}</h2>
               <p className="text-gray-300">{stepCopy.description}</p>
             </div>
             <div className="space-y-6">
@@ -830,9 +907,7 @@ function App() {
           <GameCard className="max-w-2xl mx-auto">
             <div className="text-center mb-8">
               <MapPin className="w-16 h-16 mx-auto mb-4 text-blue-400" />
-              <h2 className="game-font text-3xl font-bold text-white mb-2">
-                {stepCopy.title}
-              </h2>
+              <h2 className="game-font text-3xl font-bold text-white mb-2">{stepCopy.title}</h2>
               <p className="text-gray-300">{stepCopy.description}</p>
             </div>
             <div className="space-y-6">
@@ -879,9 +954,7 @@ function App() {
                 <h2 className="game-font text-3xl font-bold text-white mb-4">
                   {stepCopy.loadingTitle}
                 </h2>
-                <p className="text-xl text-gray-300 mb-8">
-                  {stepCopy.loadingDescription}
-                </p>
+                <p className="text-xl text-gray-300 mb-8">{stepCopy.loadingDescription}</p>
                 <div className="w-full bg-gray-700 rounded-full h-4">
                   <motion.div
                     className="bg-gradient-to-r from-blue-500 to-purple-500 h-4 rounded-full"
@@ -902,9 +975,7 @@ function App() {
                 <h2 className="game-font text-3xl font-bold text-white mb-4">
                   {stepCopy.title}
                 </h2>
-                <p className="text-xl text-gray-300 mb-8">
-                  {stepCopy.description}
-                </p>
+                <p className="text-xl text-gray-300 mb-8">{stepCopy.description}</p>
                 <StepNavigation
                   showBack
                   backLabel={navigationCopy.back}
@@ -921,18 +992,15 @@ function App() {
         )
 
       case 'results': {
+        // Force a nice hero title with real name
         const heroTitle =
-          heroCopy.title ||
-          t('results.hero.title', { name: formData.name })
+          heroCopy.title || `🎉 Your Perfect Matches, ${formData.name || 'Scholar'}!`
         const heroDescription =
           heroCopy.description ||
-          t(
-            'results.hero.description',
-            'Your personalized scholarship guide is ready!'
-          )
+          resultsCopy.hero?.description ||
+          'Your personalized scholarship guide is ready!'
         const heroLevel = t('results.hero.level', { level })
         const heroXp = t('results.hero.xp', { xp })
-        const successProbabilityLabel = aiResults?.successProbability
 
         return (
           <div className="max-w-6xl mx-auto space-y-8">
@@ -945,35 +1013,22 @@ function App() {
               >
                 <Star className="w-10 h-10 text-white" />
               </motion.div>
-              <h1 className="game-font text-4xl font-bold text-white mb-4">
-                {heroTitle}
-              </h1>
+              <h1 className="game-font text-4xl font-bold text-white mb-4">{heroTitle}</h1>
               <p className="text-xl text-gray-300 mb-6">{heroDescription}</p>
 
               {checklistItems.length > 0 ? (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-left mb-6">
                   {checklistItems.map((item, index) => (
-                    <div
-                      key={index}
-                      className="flex items-start space-x-3"
-                    >
+                    <div key={index} className="flex items-start space-x-3">
                       <CheckCircle
                         className={`w-5 h-5 mt-1 ${
-                          item.status === 'completed'
-                            ? 'text-green-400'
-                            : 'text-yellow-400'
+                          item.status === 'completed' ? 'text-green-400' : 'text-yellow-400'
                         }`}
                       />
                       <div>
                         <p className="text-white font-semibold">{item.item}</p>
                         <p className="text-sm text-gray-300">
-                          {t('results.checklist.status', {
-                            status: item.status
-                          })}{' '}
-                          •{' '}
-                          {t('results.checklist.urgency', {
-                            urgency: item.urgency
-                          })}
+                          {formatStatus(item.status)} • {formatUrgency(item.urgency)}
                         </p>
                       </div>
                     </div>
@@ -982,10 +1037,7 @@ function App() {
               ) : (
                 <p className="text-gray-400 mb-6">
                   {resultsCopy.checklist?.empty ||
-                    t(
-                      'results.checklist.empty',
-                      'No checklist items yet'
-                    )}
+                    t('results.checklist.empty', 'No checklist items yet')}
                 </p>
               )}
 
@@ -998,19 +1050,13 @@ function App() {
                   <Star className="inline w-4 h-4 mr-2" />
                   {heroXp}
                 </div>
-                {successProbabilityLabel && (
-                  <div className="bg-green-500/20 px-4 py-2 rounded-full">
-                    <BarChart3 className="inline w-4 h-4 mr-2" />
-                    {successProbabilityLabel}
-                  </div>
-                )}
               </div>
               <StepNavigation
                 showBack
                 backLabel={navigationCopy.edit}
                 backIcon={Edit3}
                 onBack={() => jumpToStep(1)}
-                primaryLabel={resultsCopy.actions.startNew}
+                primaryLabel={resultsCopy.actions?.startNew || 'Start a new quest'}
                 primaryIcon={Rocket}
                 onPrimary={() => {
                   window.localStorage.removeItem(FORM_STORAGE_KEY)
@@ -1025,7 +1071,7 @@ function App() {
             {universities.length > 0 && (
               <div>
                 <h2 className="game-font text-2xl font-bold text-white mb-6 text-center">
-                  {resultsCopy.sections.universities}
+                  {resultsCopy.sections?.universities || '🎓 Recommended Universities'}
                 </h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   {universities.map((uni, index) => (
@@ -1044,11 +1090,9 @@ function App() {
                             })}
                           </div>
                         </div>
-                        <h3 className="font-bold text-white text-lg mb-2">
-                          {uni.name}
-                        </h3>
+                        <h3 className="font-bold text-white text-lg mb-2">{uni.name}</h3>
                         <p className="text-gray-300 mb-4">
-                          {uni.country} • {uni.city}
+                          {uni.city}, {uni.country}
                         </p>
                         <div className="space-y-2 mb-4">
                           <div className="flex items-center text-sm text-gray-300">
@@ -1060,41 +1104,33 @@ function App() {
                             {uni.scholarships}
                           </div>
                           <div className="flex items-center text-sm text-gray-300">
-                            <Clock className="w-4 h-4 mr-2" />
+                            <Calendar className="w-4 h-4 mr-2" />
                             {uni.deadline}
                           </div>
                         </div>
-                        <p className="text-sm text-gray-400 mb-4">
-                          {uni.reason}
-                        </p>
+                        <p className="text-sm text-gray-400 mb-4">{uni.reason}</p>
                         <div className="space-y-2">
                           <motion.button
                             whileHover={{ scale: 1.02 }}
                             whileTap={{ scale: 0.98 }}
                             onClick={() =>
-                              window.open(
-                                uni.websiteUrl || uni.mainUrl || '#',
-                                '_blank'
-                              )
+                              window.open(uni.websiteUrl || uni.mainUrl || '#', '_blank')
                             }
                             className="w-full bg-blue-500 hover:bg-blue-600 text-white py-2 rounded-lg text-sm font-semibold transition-colors cursor-pointer"
                           >
                             <ExternalLink className="inline w-4 h-4 mr-2" />
-                            {resultsCopy.buttons.visitWebsite}
+                            {resultsCopy.buttons?.visitWebsite || 'Visit website'}
                           </motion.button>
                           <motion.button
                             whileHover={{ scale: 1.02 }}
                             whileTap={{ scale: 0.98 }}
                             onClick={() =>
-                              window.open(
-                                uni.applicationUrl || uni.applyUrl || '#',
-                                '_blank'
-                              )
+                              window.open(uni.applicationUrl || uni.applyUrl || '#', '_blank')
                             }
                             className="w-full bg-purple-500 hover:bg-purple-600 text-white py-2 rounded-lg text-sm font-semibold transition-colors cursor-pointer"
                           >
                             <FileText className="inline w-4 h-4 mr-2" />
-                            {resultsCopy.buttons.applyNow}
+                            {resultsCopy.buttons?.applyNow || 'Apply now'}
                           </motion.button>
                         </div>
                       </GameCard>
@@ -1108,16 +1144,13 @@ function App() {
             {scholarships.length > 0 && (
               <div>
                 <h2 className="game-font text-2xl font-bold text-white mb-6 text-center">
-                  {resultsCopy.sections.scholarships}
+                  {resultsCopy.sections?.scholarships || '🎁 Scholarship Programs'}
                 </h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   {scholarships.map((scholarship, index) => (
                     <motion.div
                       key={index}
-                      initial={{
-                        opacity: 0,
-                        x: index % 2 === 0 ? -20 : 20
-                      }}
+                      initial={{ opacity: 0, x: index % 2 === 0 ? -20 : 20 }}
                       animate={{ opacity: 1, x: 0 }}
                       transition={{ delay: index * 0.3 }}
                     >
@@ -1140,21 +1173,13 @@ function App() {
                             })}
                           </div>
                         </div>
-                        <h3 className="font-bold text-white text-lg mb-2">
-                          {scholarship.name}
-                        </h3>
-                        <p className="text-blue-400 mb-2">
-                          {scholarship.provider}
-                        </p>
+                        <h3 className="font-bold text-white text-lg mb-2">{scholarship.name}</h3>
+                        <p className="text-blue-400 mb-2">{scholarship.provider}</p>
                         <div className="flex items-center text-sm text-gray-300 mb-4">
                           <Clock className="w-4 h-4 mr-2" />
-                          {t('results.scholarships.deadline', {
-                            date: scholarship.deadline
-                          })}
+                          {t('results.scholarships.deadline', { date: scholarship.deadline })}
                         </div>
-                        <p className="text-sm text-gray-400 mb-4">
-                          {scholarship.description}
-                        </p>
+                        <p className="text-sm text-gray-400 mb-4">{scholarship.description}</p>
                         <motion.button
                           whileHover={{ scale: 1.02 }}
                           whileTap={{ scale: 0.98 }}
@@ -1169,7 +1194,7 @@ function App() {
                           className="w-full bg-gradient-to-r from-yellow-400 to-orange-500 text-white py-2 rounded-lg font-semibold transition-all cursor-pointer"
                         >
                           <Award className="inline w-4 h-4 mr-2" />
-                          {resultsCopy.buttons.applyNow}
+                          {resultsCopy.buttons?.applyNow || 'Apply now'}
                         </motion.button>
                       </GameCard>
                     </motion.div>
@@ -1185,30 +1210,30 @@ function App() {
               resourceGroups?.forums?.length) && (
               <div>
                 <h2 className="game-font text-2xl font-bold text-white mb-6 text-center">
-                  {resultsCopy.sections.resources}
+                  {resultsCopy.sections?.resources || '🧰 Useful Resources'}
                 </h2>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                   {[
                     {
-                      name: resultsCopy.resources.sop,
+                      name: resultsCopy.resources?.sop || 'Statement of Purpose tools',
                       icon: FileText,
                       color: 'bg-blue-500',
                       list: resourceGroups.sopTools
                     },
                     {
-                      name: resultsCopy.resources.resume,
+                      name: resultsCopy.resources?.resume || 'Resume builders',
                       icon: User,
                       color: 'bg-green-500',
                       list: resourceGroups.resumeBuilders
                     },
                     {
-                      name: resultsCopy.resources.testPrep,
+                      name: resultsCopy.resources?.testPrep || 'Test prep',
                       icon: BookOpen,
                       color: 'bg-purple-500',
                       list: resourceGroups.testPrep
                     },
                     {
-                      name: resultsCopy.resources.forums,
+                      name: resultsCopy.resources?.forums || 'Forums & communities',
                       icon: Users,
                       color: 'bg-orange-500',
                       list: resourceGroups.forums
@@ -1230,9 +1255,7 @@ function App() {
                         >
                           <resource.icon className="w-6 h-6 text-white" />
                         </div>
-                        <h3 className="text-white font-semibold text-sm">
-                          {resource.name}
-                        </h3>
+                        <h3 className="text-white font-semibold text-sm">{resource.name}</h3>
                       </GameCard>
                     </motion.div>
                   ))}
@@ -1244,10 +1267,7 @@ function App() {
             {timelinePhases.length > 0 && (
               <div>
                 <h2 className="game-font text-2xl font-bold text-white mb-6 text-center">
-                  {t(
-                    'results.sections.timeline',
-                    '📅 Your Roadmap'
-                  )}
+                  {t('results.sections.timeline', '📅 Your Roadmap')}
                 </h2>
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                   {timelinePhases.map((phase, index) => (
@@ -1256,9 +1276,7 @@ function App() {
                         <Clock className="w-5 h-5 text-yellow-400" />
                       </div>
                       <p className="text-sm text-gray-400">{phase.phase}</p>
-                      <p className="text-white text-xl font-bold">
-                        {phase.duration}
-                      </p>
+                      <p className="text-white text-xl font-bold">{phase.duration}</p>
                     </GameCard>
                   ))}
                 </div>
@@ -1268,9 +1286,9 @@ function App() {
             {/* Action Buttons */}
             <GameCard className="text-center">
               <h3 className="game-font text-xl font-bold text-white mb-4">
-                {resultsCopy.actions.title}
+                {resultsCopy.actions?.title || 'What would you like to do next?'}
               </h3>
-              <div className="flex flex-col sm:flex-row gap-4 justify-center">
+              <div className="flex flex-col sm:flex-row flex-wrap gap-4 justify-center">
                 <motion.button
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
@@ -1278,20 +1296,31 @@ function App() {
                   className="bg-gradient-to-r from-blue-500 to-purple-500 text-white px-6 py-3 rounded-xl font-bold"
                 >
                   <Rocket className="inline w-5 h-5 mr-2" />
-                  {resultsCopy.actions.startNew}
+                  {resultsCopy.actions?.startNew || 'Start new quest'}
                 </motion.button>
+
                 <motion.button
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
                   onClick={() => {
-                    if (aiResults?.redirectUrl) {
-                      window.open(aiResults.redirectUrl, '_blank')
+                    if (parsedResults?.redirectUrl) {
+                      window.open(parsedResults.redirectUrl, '_blank')
                     }
                   }}
                   className="bg-gradient-to-r from-yellow-400 to-orange-500 text-white px-6 py-3 rounded-xl font-bold"
                 >
                   <ExternalLink className="inline w-5 h-5 mr-2" />
-                  {resultsCopy.actions.viewGuide}
+                  {resultsCopy.actions?.viewGuide || 'View full guide'}
+                </motion.button>
+
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={handleDownloadPdf}
+                  className="bg-gradient-to-r from-green-500 to-emerald-500 text-white px-6 py-3 rounded-xl font-bold"
+                >
+                  <FileText className="inline w-5 h-5 mr-2" />
+                  Download PDF report
                 </motion.button>
               </div>
             </GameCard>
@@ -1306,7 +1335,7 @@ function App() {
 
   useEffect(() => {
     if (currentStep === steps.length - 2 && !isSubmitting) {
-      // Reserved: auto-submit behavior if you want later
+      // Placeholder in case you want auto-submit on "complete"
     }
   }, [currentStep, isSubmitting])
 
@@ -1323,18 +1352,11 @@ function App() {
         labels={{
           level: t('progress.level', { level }),
           xp: t('progress.xp', { xp }),
-          quest: t('progress.quest', {
-            current: currentStep,
-            total: steps.length - 1
-          })
+          quest: t('progress.quest', { current: currentStep, total: steps.length - 1 })
         }}
       />
 
-      <LanguageSwitcher
-        currentLanguage={language}
-        onChange={handleLanguageChange}
-        t={t}
-      />
+      <LanguageSwitcher currentLanguage={language} onChange={handleLanguageChange} t={t} />
 
       <Achievement
         {...achievementData}
