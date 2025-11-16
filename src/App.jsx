@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import Confetti from 'react-confetti'
 import { useTranslation } from 'react-i18next'
-import { jsPDF } from 'jspdf'
+import jsPDF from 'jspdf'
 import {
   Trophy,
   Star,
@@ -181,8 +181,6 @@ const Achievement = ({ title, description, icon: Icon, show, onHide }) => {
     }
   }, [show, onHide])
 
-  if (!Icon) return null
-
   return (
     <AnimatePresence>
       {show && (
@@ -304,7 +302,8 @@ const defaultFormData = {
   workExperience: '2 years as Junior Software Developer at XYZ Tech.',
   achievements: "Published 1 research paper, won local AI hackathon, Dean's list",
   targetCountries: 'Canada, Germany, Netherlands',
-  preferences: 'Strong research focus, part-time work allowed, preference for medium-sized universities.',
+  preferences:
+    'Strong research focus, part-time work allowed, preference for medium-sized universities.',
   languagePreference: 'en'
 }
 
@@ -369,6 +368,25 @@ const ensureObject = (value, fallback = {}) => {
   return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : fallback
 }
 
+// Helpers to show readable text for status/urgency (no more raw i18n keys)
+const formatStatus = (status) => {
+  if (!status) return 'Pending'
+  const s = String(status).toLowerCase()
+  if (s === 'completed' || s === 'done') return 'Completed'
+  if (s === 'pending') return 'Pending'
+  if (s === 'in progress') return 'In progress'
+  return s.charAt(0).toUpperCase() + s.slice(1)
+}
+
+const formatUrgency = (urgency) => {
+  if (!urgency) return 'Normal'
+  const u = String(urgency).toLowerCase()
+  if (u === 'high') return 'High'
+  if (u === 'medium') return 'Medium'
+  if (u === 'low') return 'Low'
+  return u.charAt(0).toUpperCase() + u.slice(1)
+}
+
 function App() {
   const { t, i18n } = useTranslation()
   const storedFormData = useMemo(() => getStoredFormData(), [])
@@ -391,16 +409,14 @@ function App() {
     languagePreference: initialLanguage
   }))
 
-  // Normalize the AI result based on your real response shape:
-  // {
-  //   success, message, data: { universities, scholarships, resources, applicationChecklist, ... }
-  // }
-  const parsedResults = ensureObject(aiResults, {})
-  const universities = ensureArray(parsedResults.universities)
-  const scholarships = ensureArray(parsedResults.scholarships)
-  const resourceGroups = ensureObject(parsedResults.resources)
+  // Normalize n8n data shape (incoming as { success, data: {...} })
+  const parsedResults = ensureObject(aiResults?.data ?? aiResults, {})
+  const linkData = parsedResults
+  const universities = ensureArray(linkData.universities)
+  const scholarships = ensureArray(linkData.scholarships)
+  const resourceGroups = ensureObject(linkData.resources)
+  const timelinePhases = ensureArray(parsedResults.applicationTimeline?.timeline || parsedResults.applicationChecklist?.timeline)
   const checklistItems = ensureArray(parsedResults.applicationChecklist?.documents)
-  const timelinePhases = ensureArray(parsedResults.applicationChecklist?.timeline)
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -434,6 +450,11 @@ function App() {
   const stepsCopy = t('steps', { returnObjects: true })
   const resultsCopy = t('results', { returnObjects: true })
   const heroCopy = resultsCopy.hero || {}
+  const resultsSections = resultsCopy.sections || {}
+  const resultsResources = resultsCopy.resources || {}
+  const resultsActions = resultsCopy.actions || {}
+  const resultsButtons = resultsCopy.buttons || {}
+  const resultsChecklist = resultsCopy.checklist || {}
   const navigationCopy = t('navigation', { returnObjects: true })
 
   const updateFormData = (field, value) => {
@@ -477,7 +498,7 @@ function App() {
       setXp(newXp)
       setLevel(newLevel)
 
-      if (currentStep > 0 && completedStep) {
+      if (currentStep > 0) {
         showAchievementPopup(
           t('achievement.stepCompleteTitle'),
           t('achievement.stepCompleteDescription', {
@@ -515,15 +536,20 @@ function App() {
         throw new Error(`HTTP error! status: ${response.status}`)
       }
 
-      const raw = await response.json()
-      let core = raw
+      let raw
+      try {
+        raw = await response.json()
+      } catch (e) {
+        throw new Error('Failed to parse server response as JSON')
+      }
 
-      // n8n may return array or object; your actual response is an object with .data
+      let core = raw
       if (Array.isArray(core)) {
         core = core[0] || {}
-      }
-      if (core && typeof core === 'object' && core.data && typeof core.data === 'object') {
-        core = core.data
+      } else if (core && typeof core === 'object') {
+        if (core.data && typeof core.data === 'object') {
+          core = core // we keep full shape; we handle .data later via parsedResults
+        }
       }
 
       if (!core || typeof core !== 'object') {
@@ -540,7 +566,7 @@ function App() {
       setShowConfetti(true)
 
       setTimeout(() => {
-        jumpToStep(steps.findIndex((s) => s.id === 'results'))
+        jumpToStep(steps.length - 1) // jump directly to results
       }, 2000)
     } catch (error) {
       console.error('Submission error:', error)
@@ -551,21 +577,7 @@ function App() {
     }
   }
 
-  // Helpers for checklist display so we don't show i18n keys
-  const formatStatus = (status) => {
-    if (status === 'completed') return 'Completed'
-    if (status === 'pending') return 'Pending'
-    return status ? status.charAt(0).toUpperCase() + status.slice(1) : ''
-  }
-
-  const formatUrgency = (urgency) => {
-    if (urgency === 'high') return 'High priority'
-    if (urgency === 'medium') return 'Medium priority'
-    if (urgency === 'low') return 'Low priority'
-    return urgency ? urgency.charAt(0).toUpperCase() + urgency.slice(1) : ''
-  }
-
-  // Download PDF report based on the current results
+  // --- PDF GENERATION (advanced, multi-section, with navigation) ---
   const handleDownloadPdf = () => {
     if (!universities.length && !scholarships.length && !checklistItems.length) {
       alert('No results available to generate a report yet.')
@@ -573,115 +585,348 @@ function App() {
     }
 
     const doc = new jsPDF()
-    let y = 20
+    const pageWidth = doc.internal.pageSize.getWidth()
+    const pageHeight = doc.internal.pageSize.getHeight()
 
-    // Title
-    doc.setFontSize(18)
-    doc.text('Scholarship Quest Report', 10, y)
-    y += 10
+    const primary = { r: 29, g: 181, b: 153 }
+    const dark = { r: 15, g: 23, b: 42 }
+    const accent = { r: 79, g: 70, b: 229 }
 
-    // Basic profile
-    doc.setFontSize(12)
-    doc.text(`Name: ${formData.name || ''}`, 10, y)
-    y += 6
-    doc.text(`Email: ${formData.email || ''}`, 10, y)
-    y += 6
-    doc.text(`Field of Interest: ${formData.fieldOfInterest || ''}`, 10, y)
-    y += 6
-    doc.text(`Target Degree: ${formData.targetDegree || ''}`, 10, y)
-    y += 10
+    const marginX = 15
+    const contentWidth = pageWidth - marginX * 2
 
-    // Universities
-    if (universities.length) {
-      doc.setFontSize(14)
-      doc.text('Recommended Universities', 10, y)
-      y += 8
-      doc.setFontSize(11)
+    const addHeaderBar = (title, subtitle, pageNumberForBack) => {
+      doc.setFillColor(dark.r, dark.g, dark.b)
+      doc.rect(0, 0, pageWidth, 25, 'F')
 
-      universities.forEach((uni, index) => {
-        if (y > 270) {
-          doc.addPage()
-          y = 20
-        }
-        doc.text(`${index + 1}. ${uni.name}`, 10, y)
-        y += 5
-        doc.text(`   Location: ${uni.city}, ${uni.country}`, 10, y)
-        y += 5
-        doc.text(`   Match: ${uni.matchPercentage || uni.match || 'N/A'}`, 10, y)
-        y += 5
-        doc.text(`   Tuition: ${uni.tuition || 'N/A'}`, 10, y)
-        y += 5
-        doc.text(`   Scholarship: ${uni.scholarships || 'N/A'}`, 10, y)
-        y += 5
-        doc.text(`   Deadline: ${uni.deadline || 'N/A'}`, 10, y)
-        y += 7
+      doc.setFillColor(primary.r, primary.g, primary.b)
+      doc.roundedRect(10, 7, pageWidth - 20, 11, 3, 3, 'F')
+
+      doc.setTextColor(255, 255, 255)
+      doc.setFontSize(12)
+      doc.setFont('helvetica', 'bold')
+      doc.text(title, 14, 15)
+
+      if (subtitle) {
+        doc.setFontSize(9)
+        doc.setFont('helvetica', 'normal')
+        doc.text(subtitle, pageWidth - 14, 15, { align: 'right' })
+      }
+
+      if (pageNumberForBack && pageNumberForBack !== 1) {
+        const btnWidth = 40
+        const btnHeight = 6
+        const btnX = pageWidth - btnWidth - 12
+        const btnY = 17
+
+        doc.setFillColor(255, 255, 255)
+        doc.roundedRect(btnX, btnY, btnWidth, btnHeight, 2, 2, 'F')
+
+        doc.setTextColor(primary.r, primary.g, primary.b)
+        doc.setFontSize(8)
+        doc.setFont('helvetica', 'bold')
+        doc.text('Back to contents', btnX + btnWidth / 2, btnY + 4, { align: 'center' })
+
+        doc.link(btnX, btnY, btnWidth, btnHeight, { pageNumber: 1 })
+      }
+
+      return 30
+    }
+
+    const addSectionCard = (y, title, lines) => {
+      const padding = 5
+      const cardX = marginX
+      const cardY = y
+      const lineHeight = 5
+
+      const textLines = []
+      lines.forEach((block) => {
+        if (!block) return
+        const split = doc.splitTextToSize(block, contentWidth - padding * 2)
+        textLines.push(...split, ' ')
       })
 
-      y += 5
+      const cardHeight = padding * 2 + textLines.length * lineHeight
+
+      if (cardY + cardHeight > pageHeight - 15) {
+        doc.addPage()
+        return addSectionCard(addHeaderBar('Profile Overview', null, 1), title, lines)
+      }
+
+      doc.setFillColor(248, 250, 252)
+      doc.roundedRect(cardX, cardY, contentWidth, cardHeight, 3, 3, 'F')
+
+      doc.setFont('helvetica', 'bold')
+      doc.setTextColor(dark.r, dark.g, dark.b)
+      doc.setFontSize(11)
+      doc.text(title, cardX + padding, cardY + padding + 2)
+
+      const dividerY = cardY + padding + 4
+      doc.setDrawColor(226, 232, 240)
+      doc.setLineWidth(0.3)
+      doc.line(cardX + padding, dividerY, cardX + contentWidth - padding, dividerY)
+
+      let textY = dividerY + 5
+      doc.setFont('helvetica', 'normal')
+      doc.setTextColor(55, 65, 81)
+      doc.setFontSize(9)
+
+      textLines.forEach((line) => {
+        doc.text(line, cardX + padding, textY)
+        textY += lineHeight
+      })
+
+      return cardY + cardHeight + 6
+    }
+
+    const addNextSectionButton = (label, targetPage) => {
+      const btnWidth = 60
+      const btnHeight = 7
+      const btnX = pageWidth - btnWidth - marginX
+      const btnY = pageHeight - 12
+
+      doc.setFillColor(accent.r, accent.g, accent.b)
+      doc.roundedRect(btnX, btnY, btnWidth, btnHeight, 3, 3, 'F')
+
+      doc.setTextColor(255, 255, 255)
+      doc.setFontSize(8)
+      doc.setFont('helvetica', 'bold')
+      doc.text(label, btnX + btnWidth / 2, btnY + 4.5, { align: 'center' })
+
+      doc.link(btnX, btnY, btnWidth, btnHeight, { pageNumber: targetPage })
+    }
+
+    // COVER + TOC
+    doc.setFillColor(dark.r, dark.g, dark.b)
+    doc.rect(0, 0, pageWidth, pageHeight, 'F')
+
+    doc.setFillColor(primary.r, primary.g, primary.b)
+    doc.roundedRect(20, 30, pageWidth - 40, 30, 5, 5, 'F')
+
+    doc.setTextColor(255, 255, 255)
+    doc.setFontSize(18)
+    doc.setFont('helvetica', 'bold')
+    doc.text('Scholarship Quest Report', pageWidth / 2, 45, { align: 'center' })
+
+    doc.setFontSize(11)
+    doc.setFont('helvetica', 'normal')
+    doc.text(
+      'Personalized university & scholarship roadmap based on your profile',
+      pageWidth / 2,
+      53,
+      { align: 'center' }
+    )
+
+    doc.setFillColor(15, 23, 42)
+    doc.roundedRect(20, 70, pageWidth - 40, 30, 5, 5, 'F')
+
+    doc.setTextColor(255, 255, 255)
+    doc.setFontSize(10)
+    doc.setFont('helvetica', 'bold')
+    doc.text(`Name: ${formData.name || ''}`, 25, 80)
+    doc.setFont('helvetica', 'normal')
+    doc.text(`Email: ${formData.email || ''}`, 25, 86)
+    doc.text(`Field of interest: ${formData.fieldOfInterest || ''}`, 25, 92)
+
+    doc.setFont('helvetica', 'normal')
+    doc.setTextColor(148, 163, 184)
+    doc.text(
+      `Generated on: ${new Date().toLocaleDateString()} • Level ${level} • XP ${xp}`,
+      pageWidth / 2,
+      105,
+      { align: 'center' }
+    )
+
+    const tocStartY = 120
+    const tocButtonHeight = 12
+    const tocButtonWidth = pageWidth - 40
+    const tocButtons = [
+      { key: 'profile', label: '1. Profile Overview' },
+      { key: 'universities', label: '2. University Matches' },
+      { key: 'scholarships', label: '3. Scholarship Programs' },
+      { key: 'checklist', label: '4. Checklist & Timeline' }
+    ]
+
+    doc.setFontSize(12)
+    doc.setFont('helvetica', 'bold')
+    doc.setTextColor(255, 255, 255)
+    doc.text('Table of Contents', marginX, tocStartY - 6)
+
+    tocButtons.forEach((btn, index) => {
+      const y = tocStartY + index * (tocButtonHeight + 4)
+
+      doc.setFillColor(31, 41, 55)
+      doc.roundedRect(20, y, tocButtonWidth, tocButtonHeight, 3, 3, 'F')
+      doc.setFillColor(primary.r, primary.g, primary.b)
+      doc.roundedRect(20, y, 4, tocButtonHeight, 3, 3, 'F')
+
+      doc.setTextColor(255, 255, 255)
+      doc.setFontSize(10)
+      doc.setFont('helvetica', 'normal')
+      doc.text(btn.label, 27, y + 8)
+    })
+
+    // Profile page
+    const profilePage = doc.internal.getNumberOfPages() + 1
+    doc.addPage()
+    let y = addHeaderBar('Profile Overview', 'Your academic snapshot', 1)
+
+    y = addSectionCard('' + y, 'Basic Details', [
+      `Name: ${formData.name || ''}`,
+      `Email: ${formData.email || ''}`,
+      `Age: ${formData.age || ''}`,
+      `Nationality: ${formData.nationality || ''}`
+    ])
+
+    y = addSectionCard(y, 'Academic Profile', [
+      `Current education: ${formData.currentEducation || ''}`,
+      `GPA: ${formData.gpa || ''}`,
+      `English level: ${formData.englishLevel || ''}`,
+      `Field of interest: ${formData.fieldOfInterest || ''}`,
+      `Target degree: ${formData.targetDegree || ''}`
+    ])
+
+    y = addSectionCard(y, 'Preferences & Goals', [
+      `Budget: ${formData.budget || ''}`,
+      `Target countries: ${formData.targetCountries || ''}`,
+      `Preferences: ${formData.preferences || ''}`,
+      `Work experience: ${formData.workExperience || ''}`,
+      `Achievements: ${formData.achievements || ''}`
+    ])
+
+    // University matches
+    const universitiesPage = doc.internal.getNumberOfPages() + 1
+    if (universities.length) {
+      doc.addPage()
+      y = addHeaderBar('University Matches', 'Top programs aligned with your profile', 1)
+
+      universities.forEach((uni, index) => {
+        const cardTitle = `${index + 1}. ${uni.name}`
+
+        const blocks = [
+          `Location: ${uni.city}, ${uni.country}`,
+          `Match: ${uni.matchPercentage || uni.match || 'N/A'} • Tuition: ${
+            uni.tuition || 'N/A'
+          }`,
+          `Scholarship focus: ${uni.scholarships || 'N/A'}`,
+          `Deadline: ${uni.deadline || 'N/A'}`,
+          uni.reason || ''
+        ]
+
+        if (y > pageHeight - 50) {
+          doc.addPage()
+          y = addHeaderBar('University Matches (cont.)', null, 1)
+        }
+
+        y = addSectionCard(y, cardTitle, blocks)
+      })
+
+      const scholarshipsPageGuess = doc.internal.getNumberOfPages() + 1
+      addNextSectionButton('Next: Scholarships', scholarshipsPageGuess)
     }
 
     // Scholarships
+    const scholarshipsPage = doc.internal.getNumberOfPages() + 1
     if (scholarships.length) {
-      if (y > 260) {
-        doc.addPage()
-        y = 20
-      }
-      doc.setFontSize(14)
-      doc.text('Scholarship Programs', 10, y)
-      y += 8
-      doc.setFontSize(11)
+      doc.addPage()
+      y = addHeaderBar('Scholarship Programs', 'Funding opportunities you can target', 1)
 
       scholarships.forEach((sch, index) => {
-        if (y > 270) {
+        if (y > pageHeight - 50) {
           doc.addPage()
-          y = 20
+          y = addHeaderBar('Scholarship Programs (cont.)', null, 1)
         }
-        doc.text(`${index + 1}. ${sch.name}`, 10, y)
-        y += 5
-        doc.text(`   Provider: ${sch.provider || ''}`, 10, y)
-        y += 5
-        doc.text(`   Amount: ${sch.amount || ''}`, 10, y)
-        y += 5
-        doc.text(`   Deadline: ${sch.deadline || ''}`, 10, y)
-        y += 5
-        doc.text(`   Probability: ${sch.probability || ''}`, 10, y)
-        y += 5
-        if (sch.description) {
-          const lines = doc.splitTextToSize(`   ${sch.description}`, 180)
-          lines.forEach((line) => {
-            if (y > 270) {
-              doc.addPage()
-              y = 20
-            }
-            doc.text(line, 10, y)
-            y += 5
-          })
-        }
-        y += 5
+
+        const cardTitle = `${index + 1}. ${sch.name}`
+        const blocks = [
+          `Provider: ${sch.provider || ''}`,
+          `Amount: ${sch.amount || ''}`,
+          `Deadline: ${sch.deadline || ''}`,
+          `Match probability: ${sch.probability || ''}`,
+          sch.description || ''
+        ]
+
+        y = addSectionCard(y, cardTitle, blocks)
       })
+
+      const checklistPageGuess = doc.internal.getNumberOfPages() + 1
+      addNextSectionButton('Next: Checklist', checklistPageGuess)
     }
 
-    // Checklist summary
-    if (checklistItems.length) {
-      if (y > 260) {
-        doc.addPage()
-        y = 20
+    // Checklist & Timeline
+    const checklistPage = doc.internal.getNumberOfPages() + 1
+    if (checklistItems.length || timelinePhases.length) {
+      doc.addPage()
+      y = addHeaderBar('Checklist & Timeline', 'Concrete next steps', 1)
+
+      if (checklistItems.length) {
+        doc.setFont('helvetica', 'bold')
+        doc.setTextColor(dark.r, dark.g, dark.b)
+        doc.setFontSize(12)
+        doc.text('Application Checklist', marginX, y)
+        y += 4
+
+        checklistItems.forEach((item) => {
+          if (y > pageHeight - 40) {
+            doc.addPage()
+            y = addHeaderBar('Checklist & Timeline (cont.)', null, 1)
+            doc.setFont('helvetica', 'bold')
+            doc.setTextColor(dark.r, dark.g, dark.b)
+            doc.setFontSize(12)
+            doc.text('Application Checklist (cont.)', marginX, y)
+            y += 4
+          }
+
+          const statusText = `${formatStatus(item.status)} (${formatUrgency(item.urgency)})`
+
+          y = addSectionCard(y, item.item, [statusText])
+        })
       }
-      doc.setFontSize(14)
-      doc.text('Application Checklist', 10, y)
-      y += 8
-      doc.setFontSize(11)
 
-      checklistItems.forEach((item) => {
-        if (y > 270) {
+      if (timelinePhases.length) {
+        if (y > pageHeight - 40) {
           doc.addPage()
-          y = 20
+          y = addHeaderBar('Checklist & Timeline (cont.)', null, 1)
         }
-        const line = `${item.item} – ${formatStatus(item.status)} (${formatUrgency(item.urgency)})`
-        doc.text(line, 10, y)
-        y += 6
-      })
+
+        doc.setFont('helvetica', 'bold')
+        doc.setTextColor(dark.r, dark.g, dark.b)
+        doc.setFontSize(12)
+        doc.text('Timeline', marginX, y)
+        y += 4
+
+        timelinePhases.forEach((phase) => {
+          if (y > pageHeight - 40) {
+            doc.addPage()
+            y = addHeaderBar('Checklist & Timeline (cont.)', null, 1)
+            doc.setFont('helvetica', 'bold')
+            doc.setTextColor(dark.r, dark.g, dark.b)
+            doc.setFontSize(12)
+            doc.text('Timeline (cont.)', marginX, y)
+            y += 4
+          }
+
+          y = addSectionCard(y, phase.phase, [`Duration: ${phase.duration}`])
+        })
+      }
     }
+
+    // Update TOC links
+    doc.setPage(1)
+    tocButtons.forEach((btn, index) => {
+      const yBtn = tocStartY + index * (tocButtonHeight + 4)
+
+      const targetPage =
+        btn.key === 'profile'
+          ? profilePage
+          : btn.key === 'universities'
+          ? universitiesPage
+          : btn.key === 'scholarships'
+          ? scholarshipsPage
+          : checklistPage
+
+      doc.link(20, yBtn, tocButtonWidth, tocButtonHeight, { pageNumber: targetPage })
+    })
 
     doc.save('scholarship-report.pdf')
   }
@@ -720,7 +965,7 @@ function App() {
               <h2 className="game-font text-3xl font-bold text-white mb-2">{stepCopy.title}</h2>
               <p className="text-gray-300">{stepCopy.description}</p>
             </div>
-            <div className="grid grid-cols-1 md-grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <GameInput
                 icon={User}
                 label={formLabels.name}
@@ -992,19 +1237,17 @@ function App() {
         )
 
       case 'results': {
-        // Force a nice hero title with real name
         const heroTitle =
-          heroCopy.title || `🎉 Your Perfect Matches, ${formData.name || 'Scholar'}!`
+          heroCopy.title || t('results.hero.title', { name: formData.name || 'Explorer' })
         const heroDescription =
           heroCopy.description ||
-          resultsCopy.hero?.description ||
-          'Your personalized scholarship guide is ready!'
+          t('results.hero.description', 'Your personalized scholarship guide is ready!')
         const heroLevel = t('results.hero.level', { level })
         const heroXp = t('results.hero.xp', { xp })
 
         return (
           <div className="max-w-6xl mx-auto space-y-8">
-            {/* Hero Section */}
+            {/* Hero + Checklist + PDF */}
             <GameCard className="text-center">
               <motion.div
                 animate={{ rotate: [0, 360] }}
@@ -1028,7 +1271,8 @@ function App() {
                       <div>
                         <p className="text-white font-semibold">{item.item}</p>
                         <p className="text-sm text-gray-300">
-                          {formatStatus(item.status)} • {formatUrgency(item.urgency)}
+                          Status: {formatStatus(item.status)} • Urgency:{' '}
+                          {formatUrgency(item.urgency)}
                         </p>
                       </div>
                     </div>
@@ -1036,8 +1280,7 @@ function App() {
                 </div>
               ) : (
                 <p className="text-gray-400 mb-6">
-                  {resultsCopy.checklist?.empty ||
-                    t('results.checklist.empty', 'No checklist items yet')}
+                  {resultsChecklist.empty || 'No checklist items yet.'}
                 </p>
               )}
 
@@ -1051,12 +1294,26 @@ function App() {
                   {heroXp}
                 </div>
               </div>
+
+              {/* PDF Download Button */}
+              <div className="flex flex-col sm:flex-row gap-4 justify-center mb-4">
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={handleDownloadPdf}
+                  className="bg-gradient-to-r from-emerald-500 to-teal-500 text-white px-6 py-3 rounded-xl font-bold flex items-center justify-center"
+                >
+                  <FileText className="inline w-5 h-5 mr-2" />
+                  {resultsButtons.downloadReport || 'Download PDF Report'}
+                </motion.button>
+              </div>
+
               <StepNavigation
                 showBack
                 backLabel={navigationCopy.edit}
                 backIcon={Edit3}
                 onBack={() => jumpToStep(1)}
-                primaryLabel={resultsCopy.actions?.startNew || 'Start a new quest'}
+                primaryLabel={resultsActions.startNew}
                 primaryIcon={Rocket}
                 onPrimary={() => {
                   window.localStorage.removeItem(FORM_STORAGE_KEY)
@@ -1071,7 +1328,7 @@ function App() {
             {universities.length > 0 && (
               <div>
                 <h2 className="game-font text-2xl font-bold text-white mb-6 text-center">
-                  {resultsCopy.sections?.universities || '🎓 Recommended Universities'}
+                  {resultsSections.universities || '🎓 Recommended Universities'}
                 </h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   {universities.map((uni, index) => (
@@ -1079,7 +1336,7 @@ function App() {
                       key={index}
                       initial={{ opacity: 0, y: 20 }}
                       animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: index * 0.2 }}
+                      transition={{ delay: index * 0.15 }}
                     >
                       <GameCard className="h-full">
                         <div className="flex items-center justify-between mb-4">
@@ -1091,20 +1348,20 @@ function App() {
                           </div>
                         </div>
                         <h3 className="font-bold text-white text-lg mb-2">{uni.name}</h3>
-                        <p className="text-gray-300 mb-4">
+                        <p className="text-gray-300 mb-2">
                           {uni.city}, {uni.country}
                         </p>
-                        <div className="space-y-2 mb-4">
-                          <div className="flex items-center text-sm text-gray-300">
+                        <div className="space-y-2 mb-4 text-sm">
+                          <div className="flex items-center text-gray-300">
                             <DollarSign className="w-4 h-4 mr-2" />
                             {uni.tuition}
                           </div>
-                          <div className="flex items-center text-sm text-gray-300">
+                          <div className="flex items-center text-gray-300">
                             <Award className="w-4 h-4 mr-2" />
                             {uni.scholarships}
                           </div>
-                          <div className="flex items-center text-sm text-gray-300">
-                            <Calendar className="w-4 h-4 mr-2" />
+                          <div className="flex items-center text-gray-300">
+                            <Clock className="w-4 h-4 mr-2" />
                             {uni.deadline}
                           </div>
                         </div>
@@ -1119,7 +1376,7 @@ function App() {
                             className="w-full bg-blue-500 hover:bg-blue-600 text-white py-2 rounded-lg text-sm font-semibold transition-colors cursor-pointer"
                           >
                             <ExternalLink className="inline w-4 h-4 mr-2" />
-                            {resultsCopy.buttons?.visitWebsite || 'Visit website'}
+                            {resultsButtons.visitWebsite || 'Visit Website'}
                           </motion.button>
                           <motion.button
                             whileHover={{ scale: 1.02 }}
@@ -1130,7 +1387,7 @@ function App() {
                             className="w-full bg-purple-500 hover:bg-purple-600 text-white py-2 rounded-lg text-sm font-semibold transition-colors cursor-pointer"
                           >
                             <FileText className="inline w-4 h-4 mr-2" />
-                            {resultsCopy.buttons?.applyNow || 'Apply now'}
+                            {resultsButtons.applyNow || 'Apply Now'}
                           </motion.button>
                         </div>
                       </GameCard>
@@ -1144,7 +1401,7 @@ function App() {
             {scholarships.length > 0 && (
               <div>
                 <h2 className="game-font text-2xl font-bold text-white mb-6 text-center">
-                  {resultsCopy.sections?.scholarships || '🎁 Scholarship Programs'}
+                  {resultsSections.scholarships || '💰 Scholarship Programs'}
                 </h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   {scholarships.map((scholarship, index) => (
@@ -1152,7 +1409,7 @@ function App() {
                       key={index}
                       initial={{ opacity: 0, x: index % 2 === 0 ? -20 : 20 }}
                       animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: index * 0.3 }}
+                      transition={{ delay: index * 0.2 }}
                     >
                       <GameCard className="h-full">
                         <div className="flex items-center justify-between mb-4">
@@ -1194,7 +1451,7 @@ function App() {
                           className="w-full bg-gradient-to-r from-yellow-400 to-orange-500 text-white py-2 rounded-lg font-semibold transition-all cursor-pointer"
                         >
                           <Award className="inline w-4 h-4 mr-2" />
-                          {resultsCopy.buttons?.applyNow || 'Apply now'}
+                          {resultsButtons.applyNow || 'Apply Now'}
                         </motion.button>
                       </GameCard>
                     </motion.div>
@@ -1210,30 +1467,30 @@ function App() {
               resourceGroups?.forums?.length) && (
               <div>
                 <h2 className="game-font text-2xl font-bold text-white mb-6 text-center">
-                  {resultsCopy.sections?.resources || '🧰 Useful Resources'}
+                  {resultsSections.resources || '🧰 Tools & Resources'}
                 </h2>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                   {[
                     {
-                      name: resultsCopy.resources?.sop || 'Statement of Purpose tools',
+                      name: resultsResources.sop || 'SOP & Essays',
                       icon: FileText,
                       color: 'bg-blue-500',
                       list: resourceGroups.sopTools
                     },
                     {
-                      name: resultsCopy.resources?.resume || 'Resume builders',
+                      name: resultsResources.resume || 'Resume Builders',
                       icon: User,
                       color: 'bg-green-500',
                       list: resourceGroups.resumeBuilders
                     },
                     {
-                      name: resultsCopy.resources?.testPrep || 'Test prep',
+                      name: resultsResources.testPrep || 'Test Prep',
                       icon: BookOpen,
                       color: 'bg-purple-500',
                       list: resourceGroups.testPrep
                     },
                     {
-                      name: resultsCopy.resources?.forums || 'Forums & communities',
+                      name: resultsResources.forums || 'Forums',
                       icon: Users,
                       color: 'bg-orange-500',
                       list: resourceGroups.forums
@@ -1267,7 +1524,7 @@ function App() {
             {timelinePhases.length > 0 && (
               <div>
                 <h2 className="game-font text-2xl font-bold text-white mb-6 text-center">
-                  {t('results.sections.timeline', '📅 Your Roadmap')}
+                  {resultsSections.timeline || '📅 Your Roadmap'}
                 </h2>
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                   {timelinePhases.map((phase, index) => (
@@ -1283,12 +1540,12 @@ function App() {
               </div>
             )}
 
-            {/* Action Buttons */}
+            {/* Actions */}
             <GameCard className="text-center">
               <h3 className="game-font text-xl font-bold text-white mb-4">
-                {resultsCopy.actions?.title || 'What would you like to do next?'}
+                {resultsActions.title || 'What’s next?'}
               </h3>
-              <div className="flex flex-col sm:flex-row flex-wrap gap-4 justify-center">
+              <div className="flex flex-col sm:flex-row gap-4 justify-center">
                 <motion.button
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
@@ -1296,31 +1553,20 @@ function App() {
                   className="bg-gradient-to-r from-blue-500 to-purple-500 text-white px-6 py-3 rounded-xl font-bold"
                 >
                   <Rocket className="inline w-5 h-5 mr-2" />
-                  {resultsCopy.actions?.startNew || 'Start new quest'}
+                  {resultsActions.startNew || 'Start a New Quest'}
                 </motion.button>
-
                 <motion.button
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
                   onClick={() => {
-                    if (parsedResults?.redirectUrl) {
-                      window.open(parsedResults.redirectUrl, '_blank')
+                    if (aiResults?.redirectUrl) {
+                      window.open(aiResults.redirectUrl, '_blank')
                     }
                   }}
                   className="bg-gradient-to-r from-yellow-400 to-orange-500 text-white px-6 py-3 rounded-xl font-bold"
                 >
                   <ExternalLink className="inline w-5 h-5 mr-2" />
-                  {resultsCopy.actions?.viewGuide || 'View full guide'}
-                </motion.button>
-
-                <motion.button
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  onClick={handleDownloadPdf}
-                  className="bg-gradient-to-r from-green-500 to-emerald-500 text-white px-6 py-3 rounded-xl font-bold"
-                >
-                  <FileText className="inline w-5 h-5 mr-2" />
-                  Download PDF report
+                  {resultsActions.viewGuide || 'Open Full Guide'}
                 </motion.button>
               </div>
             </GameCard>
@@ -1335,7 +1581,7 @@ function App() {
 
   useEffect(() => {
     if (currentStep === steps.length - 2 && !isSubmitting) {
-      // Placeholder in case you want auto-submit on "complete"
+      // keep manual submit
     }
   }, [currentStep, isSubmitting])
 
