@@ -114,6 +114,11 @@ const SectionNavigator = ({ currentStep, steps, stepsCopy, onJump }) => {
       <div className="max-w-4xl mx-auto glass-morphism rounded-2xl px-3 sm:px-4 py-3 border border-white/10">
         <div className="flex gap-2 overflow-x-auto no-scrollbar">
           {steps.map((step, index) => {
+            // Hide technical steps that shouldn't be directly navigated to
+            if (step.id === 'complete' || step.id === 'results') {
+              return null
+            }
+
             const copy = stepsCopy?.[step.id] || {}
             const label = copy.navLabel || copy.title || step.id
             const isActive = index === currentStep
@@ -1375,9 +1380,7 @@ function App() {
                         <Clock className="w-5 h-5 text-yellow-400" />
                       </div>
                       <p className="text-sm text-gray-400">{phase.phase}</p>
-                      <p className="text-white text-xl font-bold">
-                        {phase.duration}
-                      </p>
+                      <p className="text-white text-xl font-bold">{phase.duration}</p>
                     </GameCard>
                   ))}
                 </div>
@@ -1409,11 +1412,17 @@ function App() {
                       )}
                     </h3>
                     <p className="text-gray-200 mb-2">
-                      {t('results.insights.gpaRating', {
-                        rating:
-                          personalizedInsights.competitivenessAnalysis
-                            .gpaRating
-                      })}
+                      {(() => {
+                        const key = 'results.insights.gpaRating'
+                        const text = t(key, {
+                          rating:
+                            personalizedInsights.competitivenessAnalysis
+                              .gpaRating
+                        })
+                        return text === key
+                          ? `GPA rating: ${personalizedInsights.competitivenessAnalysis.gpaRating}`
+                          : text
+                      })()}
                     </p>
                     {ensureArray(
                       personalizedInsights.competitivenessAnalysis
@@ -1437,24 +1446,48 @@ function App() {
                     </h3>
                     <ul className="text-sm text-gray-200 space-y-1">
                       <li>
-                        {t('results.costs.applicationFees', {
-                          value: estimatedCosts.applicationFees
-                        })}
+                        {(() => {
+                          const key = 'results.costs.applicationFees'
+                          const text = t(key, {
+                            value: estimatedCosts.applicationFees
+                          })
+                          return text === key
+                            ? `Application fees: ${estimatedCosts.applicationFees}`
+                            : text
+                        })()}
                       </li>
                       <li>
-                        {t('results.costs.testFees', {
-                          value: estimatedCosts.testFees
-                        })}
+                        {(() => {
+                          const key = 'results.costs.testFees'
+                          const text = t(key, {
+                            value: estimatedCosts.testFees
+                          })
+                          return text === key
+                            ? `Test fees: ${estimatedCosts.testFees}`
+                            : text
+                        })()}
                       </li>
                       <li>
-                        {t('results.costs.visaFees', {
-                          value: estimatedCosts.visaFees
-                        })}
+                        {(() => {
+                          const key = 'results.costs.visaFees'
+                          const text = t(key, {
+                            value: estimatedCosts.visaFees
+                          })
+                          return text === key
+                            ? `Visa fees: ${estimatedCosts.visaFees}`
+                            : text
+                        })()}
                       </li>
                       <li className="font-semibold text-white mt-2">
-                        {t('results.costs.totalEstimate', {
-                          value: estimatedCosts.totalEstimate
-                        })}
+                        {(() => {
+                          const key = 'results.costs.totalEstimate'
+                          const text = t(key, {
+                            value: estimatedCosts.totalEstimate
+                          })
+                          return text === key
+                            ? `Total estimated cost: ${estimatedCosts.totalEstimate}`
+                            : text
+                        })()}
                       </li>
                     </ul>
                   </GameCard>
