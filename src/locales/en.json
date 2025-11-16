@@ -131,15 +131,21 @@
       "title": "🎉 Your Perfect Matches, {{name}}!",
       "description": "Our AI has analyzed your profile and found amazing opportunities tailored just for you!",
       "level": "Level {{level}} Scholar",
-      "xp": "{{xp}} XP Earned"
+      "xp": "{{xp}} XP Earned",
+      "success": "Success probability: {{success}}"
     },
     "sections": {
       "universities": "🏛️ Top University Matches",
       "scholarships": "💰 Top Scholarship Opportunities",
-      "resources": "🛠️ Helpful Resources"
+      "resources": "🛠️ Helpful Resources",
+      "timeline": "📅 Your Roadmap",
+      "sopOutline": "📝 SOP Outline",
+      "competitiveness": "🎯 Competitiveness",
+      "costs": "💰 Estimated Costs"
     },
     "universities": {
-      "match": "{{value}} Match"
+      "match": "{{value}} Match",
+      "deadline": "Application deadline: {{date}}"
     },
     "scholarships": {
       "deadline": "Deadline: {{date}}",
@@ -147,13 +153,23 @@
     },
     "buttons": {
       "visitWebsite": "Visit Website",
-      "applyNow": "Apply Now"
+      "applyNow": "Apply Now",
+      "downloadPdf": "Download PDF Report"
     },
     "resources": {
       "sop": "SOP Tools",
       "resume": "Resume Builders",
       "testPrep": "Test Prep",
       "forums": "Student Forums"
+    },
+    "insights": {
+      "gpaRating": "GPA rating: {{rating}}"
+    },
+    "costs": {
+      "applicationFees": "Application fees: {{value}}",
+      "testFees": "Test fees: {{value}}",
+      "visaFees": "Visa fees: {{value}}",
+      "totalEstimate": "Total estimated cost: {{value}}"
     },
     "actions": {
       "title": "Ready for Your Next Quest?",
