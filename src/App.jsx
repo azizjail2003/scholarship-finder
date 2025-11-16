@@ -449,18 +449,28 @@ function App() {
 
   // Normalize AI results
   const parsedResults = ensureObject(aiResults?.data ?? aiResults, {})
-  const linkData = ensureObject(parsedResults, {})
+  // Many workflows wrap content under `linksData`, but some may put fields at the top level.
+  const linkData = ensureObject(parsedResults.linksData ?? parsedResults, {})
+
   const universities = ensureArray(linkData.universities)
   const scholarships = ensureArray(linkData.scholarships)
   const resourceGroups = ensureObject(linkData.resources)
   const applicationTimeline = ensureObject(linkData.applicationTimeline)
   const estimatedCosts = ensureObject(linkData.estimatedCosts)
-  const personalizedInsights = ensureObject(linkData.personalizedInsights)
-  const applicationChecklist = ensureObject(linkData.applicationChecklist)
+
+  const personalizedInsights = ensureObject(
+    parsedResults.personalizedInsights ?? linkData.personalizedInsights
+  )
+  const applicationChecklist = ensureObject(
+    parsedResults.applicationChecklist ?? linkData.applicationChecklist
+  )
   const checklistItems = ensureArray(applicationChecklist.documents)
   const timelinePhases = ensureArray(applicationChecklist.timeline)
-  const sopOutline = parsedResults.sopOutline || ''
-  const successProbability = parsedResults.successProbability || parsedResults.successProbabilityText
+
+  const sopOutline =
+    parsedResults.sopOutline || parsedResults.sopOutlineText || ''
+  const successProbability =
+    parsedResults.successProbability || parsedResults.successProbabilityText
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -1038,6 +1048,17 @@ function App() {
         const heroLevel = t('results.hero.level', { level })
         const heroXp = t('results.hero.xp', { xp })
 
+        const costsCopy = resultsCopy.costs || {}
+        const formatCostLine = (template, fallback, value) => {
+          const safeTemplate =
+            !template || template.includes('results.costs.')
+              ? fallback
+              : template
+
+          // Always replace the placeholder; if value is missing, this just removes {{value}}
+          return safeTemplate.replace('{{value}}', value ?? '')
+        }
+
         return (
           <div id="results-section" className="max-w-6xl mx-auto space-y-8">
             {/* Hero Section */}
@@ -1414,14 +1435,19 @@ function App() {
                     <p className="text-gray-200 mb-2">
                       {(() => {
                         const key = 'results.insights.gpaRating'
+                        const fallback = `GPA rating: ${personalizedInsights.competitivenessAnalysis.gpaRating}`
                         const text = t(key, {
                           rating:
                             personalizedInsights.competitivenessAnalysis
-                              .gpaRating
+                              .gpaRating,
+                          defaultValue: fallback
                         })
-                        return text === key
-                          ? `GPA rating: ${personalizedInsights.competitivenessAnalysis.gpaRating}`
-                          : text
+
+                        if (!text || text === key || text.includes('results.insights.')) {
+                          return fallback
+                        }
+
+                        return text
                       })()}
                     </p>
                     {ensureArray(
@@ -1446,48 +1472,32 @@ function App() {
                     </h3>
                     <ul className="text-sm text-gray-200 space-y-1">
                       <li>
-                        {(() => {
-                          const key = 'results.costs.applicationFees'
-                          const text = t(key, {
-                            value: estimatedCosts.applicationFees
-                          })
-                          return text === key
-                            ? `Application fees: ${estimatedCosts.applicationFees}`
-                            : text
-                        })()}
+                        {formatCostLine(
+                          costsCopy.applicationFees,
+                          'Application fees: {{value}}',
+                          estimatedCosts.applicationFees
+                        )}
                       </li>
                       <li>
-                        {(() => {
-                          const key = 'results.costs.testFees'
-                          const text = t(key, {
-                            value: estimatedCosts.testFees
-                          })
-                          return text === key
-                            ? `Test fees: ${estimatedCosts.testFees}`
-                            : text
-                        })()}
+                        {formatCostLine(
+                          costsCopy.testFees,
+                          'Test fees: {{value}}',
+                          estimatedCosts.testFees
+                        )}
                       </li>
                       <li>
-                        {(() => {
-                          const key = 'results.costs.visaFees'
-                          const text = t(key, {
-                            value: estimatedCosts.visaFees
-                          })
-                          return text === key
-                            ? `Visa fees: ${estimatedCosts.visaFees}`
-                            : text
-                        })()}
+                        {formatCostLine(
+                          costsCopy.visaFees,
+                          'Visa fees: {{value}}',
+                          estimatedCosts.visaFees
+                        )}
                       </li>
                       <li className="font-semibold text-white mt-2">
-                        {(() => {
-                          const key = 'results.costs.totalEstimate'
-                          const text = t(key, {
-                            value: estimatedCosts.totalEstimate
-                          })
-                          return text === key
-                            ? `Total estimated cost: ${estimatedCosts.totalEstimate}`
-                            : text
-                        })()}
+                        {formatCostLine(
+                          costsCopy.totalEstimate,
+                          'Total estimated cost: {{value}}',
+                          estimatedCosts.totalEstimate
+                        )}
                       </li>
                     </ul>
                   </GameCard>
