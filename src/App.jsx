@@ -2,12 +2,12 @@ import React, { useState, useEffect, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import Confetti from 'react-confetti'
 import { useTranslation } from 'react-i18next'
-import { 
-  Trophy, 
-  Star, 
-  Zap, 
-  Target, 
-  Award, 
+import {
+  Trophy,
+  Star,
+  Zap,
+  Target,
+  Award,
   Rocket,
   User,
   Mail,
@@ -27,7 +27,8 @@ import {
   FileText,
   Link,
   ArrowLeft,
-  Edit3
+  Edit3,
+  AlertTriangle
 } from 'lucide-react'
 
 const languageOptions = ['en', 'fr', 'es', 'ar']
@@ -36,7 +37,7 @@ const degreeOptionValues = {
   bachelor: "Bachelor's",
   master: "Master's",
   phd: "PhD",
-  diploma: "Diploma"
+  diploma: 'Diploma'
 }
 
 const budgetOptionValues = {
@@ -95,7 +96,9 @@ const StepNavigation = ({
       whileTap={{ scale: primaryDisabled ? 1 : 0.95 }}
       onClick={primaryDisabled ? undefined : onPrimary}
       disabled={primaryDisabled}
-      className={`${primaryClassName} px-6 py-3 rounded-xl font-bold text-center flex items-center justify-center ${primaryDisabled ? 'opacity-60 cursor-not-allowed' : ''}`}
+      className={`${primaryClassName} px-6 py-3 rounded-xl font-bold text-center flex items-center justify-center ${
+        primaryDisabled ? 'opacity-60 cursor-not-allowed' : ''
+      }`}
     >
       {PrimaryIcon && <PrimaryIcon className="inline w-5 h-5 mr-2" />}
       {primaryLabel}
@@ -124,7 +127,7 @@ const StarField = () => {
 
   return (
     <div className="stars">
-      {stars.map(star => (
+      {stars.map((star) => (
         <div
           key={star.id}
           className="star"
@@ -148,7 +151,9 @@ const GameProgress = ({ currentStep, totalSteps, xp, level, labels }) => {
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center space-x-2">
             <Trophy className="w-5 h-5 text-game-gold" />
-            <span className="game-font text-white font-bold">{labels.level}</span>
+            <span className="game-font text-white font-bold">
+              {labels.level}
+            </span>
           </div>
           <div className="flex items-center space-x-2">
             <Star className="w-4 h-4 text-game-gold" />
@@ -163,7 +168,9 @@ const GameProgress = ({ currentStep, totalSteps, xp, level, labels }) => {
             transition={{ duration: 0.5 }}
           />
         </div>
-        <div className="text-center text-sm text-gray-300">{labels.quest}</div>
+        <div className="text-center text-sm text-gray-300">
+          {labels.quest}
+        </div>
       </div>
     </div>
   )
@@ -201,7 +208,7 @@ const Achievement = ({ title, description, icon: Icon, show, onHide }) => {
   )
 }
 
-const GameCard = ({ children, className = "" }) => (
+const GameCard = ({ children, className = '' }) => (
   <motion.div
     initial={{ opacity: 0, y: 20 }}
     animate={{ opacity: 1, y: 0 }}
@@ -212,7 +219,17 @@ const GameCard = ({ children, className = "" }) => (
   </motion.div>
 )
 
-const GameInput = ({ icon: Icon, label, type = "text", value, onChange, options, required = false, placeholder, selectPlaceholder = "Select..." }) => (
+const GameInput = ({
+  icon: Icon,
+  label,
+  type = 'text',
+  value,
+  onChange,
+  options,
+  required = false,
+  placeholder,
+  selectPlaceholder = 'Select...'
+}) => (
   <div className="space-y-2">
     <label className="flex items-center space-x-2 text-white font-semibold">
       <Icon className="w-5 h-5 text-blue-400" />
@@ -227,8 +244,10 @@ const GameInput = ({ icon: Icon, label, type = "text", value, onChange, options,
         required={required}
       >
         <option value="">{selectPlaceholder}</option>
-        {options.map(option => (
-          <option key={option.value} value={option.value}>{option.label}</option>
+        {options.map((option) => (
+          <option key={option.value} value={option.value}>
+            {option.label}
+          </option>
         ))}
       </select>
     ) : type === 'textarea' ? (
@@ -267,7 +286,9 @@ const steps = [
 
 const calculateXpForStep = (stepIndex) => {
   const boundedIndex = Math.min(Math.max(stepIndex, 0), steps.length)
-  return steps.slice(0, boundedIndex).reduce((total, step) => total + step.xpReward, 0)
+  return steps
+    .slice(0, boundedIndex)
+    .reduce((total, step) => total + step.xpReward, 0)
 }
 
 const getLevelFromXp = (xpValue) => Math.floor(xpValue / 500) + 1
@@ -286,7 +307,8 @@ const defaultFormData = {
   workExperience: '2 years as Junior Software Developer at XYZ Tech.',
   achievements: "Published 1 research paper, won local AI hackathon, Dean's list",
   targetCountries: 'Canada, Germany, Netherlands',
-  preferences: 'Strong research focus, part-time work allowed, preference for medium-sized universities.',
+  preferences:
+    'Strong research focus, part-time work allowed, preference for medium-sized universities.',
   languagePreference: 'en'
 }
 
@@ -348,7 +370,9 @@ const ensureArray = (value, fallback = []) => {
 
 const ensureObject = (value, fallback = {}) => {
   const parsed = safeParseJSON(value, fallback)
-  return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : fallback
+  return parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+    ? parsed
+    : fallback
 }
 
 function App() {
@@ -356,7 +380,10 @@ function App() {
   const storedFormData = useMemo(() => getStoredFormData(), [])
   const storedStep = useMemo(() => getStoredStep(), [])
   const initialLanguage = storedFormData.languagePreference || i18n.language || 'en'
-  const initialProgress = useMemo(() => computeProgress(storedStep), [storedStep])
+  const initialProgress = useMemo(
+    () => computeProgress(storedStep),
+    [storedStep]
+  )
 
   const [currentStep, setCurrentStep] = useState(storedStep)
   const [xp, setXp] = useState(initialProgress.xpValue)
@@ -373,29 +400,24 @@ function App() {
     languagePreference: initialLanguage
   }))
 
-  // --- NORMALIZED AI RESULTS (works with all n8n shapes & your example) ---
+  // aiResults may either be the whole object or wrapped in a .data field
   const parsedResults = ensureObject(aiResults?.data ?? aiResults, {})
-
   const linkData = ensureObject(parsedResults.linksData, {})
+
   const checklistItems = ensureArray(parsedResults.applicationChecklist?.documents)
   const timelinePhases = ensureArray(parsedResults.applicationChecklist?.timeline)
 
-  const universities = ensureArray(linkData.universities)
-  const scholarships = ensureArray(linkData.scholarships)
-  const resourceGroups = ensureObject(linkData.resources)
-
-  // Extra fields from your example payload
-  const userProfile = ensureObject(parsedResults.userProfile, {})
-  const normalizedGPA = parsedResults.normalizedGPA
-  const competitivenessScore = ensureObject(parsedResults.competitivenessScore, {})
-  const personalizedInsights = ensureObject(parsedResults.personalizedInsights, {})
-  const competitivenessAnalysis = ensureObject(personalizedInsights.competitivenessAnalysis, {})
-  const nextSteps = ensureArray(personalizedInsights.nextSteps)
-  const applicationTimeline = ensureObject(parsedResults.applicationTimeline, {})
-  const estimatedCosts = ensureObject(parsedResults.estimatedCosts, {})
-  const validationResult = ensureObject(parsedResults.validationResult, {})
-  const sopOutline = parsedResults.sopOutline || ''
-  const successProbability = parsedResults.successProbability
+  // universities / scholarships may be in linksData (old) or directly in `data` (new)
+  const universities = ensureArray(
+    linkData.universities || parsedResults.universities
+  )
+  const scholarships = ensureArray(
+    linkData.scholarships || parsedResults.scholarships
+  )
+  const resourceGroups = ensureObject(
+    linkData.resources || parsedResults.resources || {},
+    {}
+  )
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -412,31 +434,31 @@ function App() {
   const handleLanguageChange = (lang) => {
     setLanguage(lang)
     i18n.changeLanguage(lang)
-    setFormData(prev => ({ ...prev, languagePreference: lang }))
+    setFormData((prev) => ({ ...prev, languagePreference: lang }))
   }
 
   const selectPlaceholderText = t('forms.selectPlaceholder')
-  const degreeOptionsList = Object.entries(degreeOptionValues).map(([key, value]) => ({
-    value,
-    label: t(`forms.options.degrees.${key}`)
-  }))
-  const budgetOptionsList = Object.entries(budgetOptionValues).map(([key, value]) => ({
-    value,
-    label: t(`forms.options.budget.${key}`)
-  }))
+  const degreeOptionsList = Object.entries(degreeOptionValues).map(
+    ([key, value]) => ({
+      value,
+      label: t(`forms.options.degrees.${key}`)
+    })
+  )
+  const budgetOptionsList = Object.entries(budgetOptionValues).map(
+    ([key, value]) => ({
+      value,
+      label: t(`forms.options.budget.${key}`)
+    })
+  )
   const formLabels = t('forms.fields', { returnObjects: true })
   const formPlaceholders = t('forms.placeholders', { returnObjects: true })
   const stepsCopy = t('steps', { returnObjects: true })
   const resultsCopy = t('results', { returnObjects: true })
   const heroCopy = resultsCopy.hero || {}
-  const resultsSections = resultsCopy.sections || {}
-  const resultsResources = resultsCopy.resources || {}
-  const resultsActions = resultsCopy.actions || {}
-  const resultsButtons = resultsCopy.buttons || {}
-  const resultsChecklist = resultsCopy.checklist || {}
+  const navigationCopy = t('navigation', { returnObjects: true })
 
   const updateFormData = (field, value) => {
-    setFormData(prev => ({ ...prev, [field]: value }))
+    setFormData((prev) => ({ ...prev, [field]: value }))
   }
 
   const showAchievementPopup = (title, description, icon) => {
@@ -479,7 +501,10 @@ function App() {
       if (currentStep > 0) {
         showAchievementPopup(
           t('achievement.stepCompleteTitle'),
-          t('achievement.stepCompleteDescription', { stepTitle: t(`steps.${completedStep.id}.title`), xp: completedStep.xpReward }),
+          t('achievement.stepCompleteDescription', {
+            stepTitle: t(`steps.${completedStep.id}.title`),
+            xp: completedStep.xpReward
+          }),
           completedStep.icon
         )
       }
@@ -494,27 +519,43 @@ function App() {
 
   const submitForm = async () => {
     setIsSubmitting(true)
-    
+
     try {
-      const response = await fetch(import.meta.env.VITE_WEBHOOK_URL || 'http://localhost:5680/webhook/scholarship-finder', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(formData)
-      })
+      const response = await fetch(
+        import.meta.env.VITE_WEBHOOK_URL ||
+          'http://localhost:5680/webhook/scholarship-finder',
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(formData)
+        }
+      )
 
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`)
       }
 
-      const raw = await response.json()
+      const text = await response.text()
+      if (!text) {
+        throw new Error('Empty response from server')
+      }
+
+      let raw
+      try {
+        raw = JSON.parse(text)
+      } catch (err) {
+        console.error('Invalid JSON from server:', text)
+        throw err
+      }
+
       let core = raw
 
-      // n8n can return:
-      // - [ { ... } ]
-      // - { data: [ { ... } ] }
-      // - { data: { ... } }
+      // n8n may return:
+      // - [ {...} ]
+      // - { success, data: [...] }
+      // - { success, data: {...} }
       if (Array.isArray(core)) {
         core = core[0] || {}
       } else if (core && typeof core === 'object') {
@@ -529,7 +570,13 @@ function App() {
         throw new Error('Unexpected response format from server')
       }
 
-      setAiResults(core)
+      // Keep the full raw object, but ensure `data` points at the normalized core
+      const normalized = {
+        ...raw,
+        data: core
+      }
+
+      setAiResults(normalized)
 
       showAchievementPopup(
         t('achievement.questCompleteTitle'),
@@ -537,7 +584,7 @@ function App() {
         Trophy
       )
       setShowConfetti(true)
-      
+
       setTimeout(() => {
         nextStep()
       }, 2000)
@@ -550,8 +597,6 @@ function App() {
     }
   }
 
-  const navigationCopy = t('navigation', { returnObjects: true })
-
   const renderStepContent = () => {
     const step = steps[currentStep]
     const stepCopy = stepsCopy?.[step.id] || {}
@@ -562,7 +607,7 @@ function App() {
           <GameCard className="text-center max-w-2xl mx-auto">
             <motion.div
               animate={{ rotate: 360 }}
-              transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+              transition={{ duration: 2, repeat: Infinity, ease: 'linear' }}
               className="w-24 h-24 mx-auto mb-6 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center"
             >
               <Rocket className="w-12 h-12 text-white" />
@@ -587,7 +632,9 @@ function App() {
           <GameCard className="max-w-2xl mx-auto">
             <div className="text-center mb-8">
               <User className="w-16 h-16 mx-auto mb-4 text-blue-400" />
-              <h2 className="game-font text-3xl font-bold text-white mb-2">{stepCopy.title}</h2>
+              <h2 className="game-font text-3xl font-bold text-white mb-2">
+                {stepCopy.title}
+              </h2>
               <p className="text-gray-300">{stepCopy.description}</p>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -642,7 +689,9 @@ function App() {
           <GameCard className="max-w-2xl mx-auto">
             <div className="text-center mb-8">
               <GraduationCap className="w-16 h-16 mx-auto mb-4 text-blue-400" />
-              <h2 className="game-font text-3xl font-bold text-white mb-2">{stepCopy.title}</h2>
+              <h2 className="game-font text-3xl font-bold text-white mb-2">
+                {stepCopy.title}
+              </h2>
               <p className="text-gray-300">{stepCopy.description}</p>
             </div>
             <div className="space-y-6">
@@ -689,7 +738,9 @@ function App() {
           <GameCard className="max-w-2xl mx-auto">
             <div className="text-center mb-8">
               <Target className="w-16 h-16 mx-auto mb-4 text-blue-400" />
-              <h2 className="game-font text-3xl font-bold text-white mb-2">{stepCopy.title}</h2>
+              <h2 className="game-font text-3xl font-bold text-white mb-2">
+                {stepCopy.title}
+              </h2>
               <p className="text-gray-300">{stepCopy.description}</p>
             </div>
             <div className="space-y-6">
@@ -740,7 +791,9 @@ function App() {
           <GameCard className="max-w-2xl mx-auto">
             <div className="text-center mb-8">
               <Award className="w-16 h-16 mx-auto mb-4 text-blue-400" />
-              <h2 className="game-font text-3xl font-bold text-white mb-2">{stepCopy.title}</h2>
+              <h2 className="game-font text-3xl font-bold text-white mb-2">
+                {stepCopy.title}
+              </h2>
               <p className="text-gray-300">{stepCopy.description}</p>
             </div>
             <div className="space-y-6">
@@ -777,7 +830,9 @@ function App() {
           <GameCard className="max-w-2xl mx-auto">
             <div className="text-center mb-8">
               <MapPin className="w-16 h-16 mx-auto mb-4 text-blue-400" />
-              <h2 className="game-font text-3xl font-bold text-white mb-2">{stepCopy.title}</h2>
+              <h2 className="game-font text-3xl font-bold text-white mb-2">
+                {stepCopy.title}
+              </h2>
               <p className="text-gray-300">{stepCopy.description}</p>
             </div>
             <div className="space-y-6">
@@ -816,7 +871,7 @@ function App() {
               <>
                 <motion.div
                   animate={{ rotate: 360 }}
-                  transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+                  transition={{ duration: 2, repeat: Infinity, ease: 'linear' }}
                   className="w-24 h-24 mx-auto mb-6 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center"
                 >
                   <Zap className="w-12 h-12 text-white" />
@@ -830,7 +885,7 @@ function App() {
                 <div className="w-full bg-gray-700 rounded-full h-4">
                   <motion.div
                     className="bg-gradient-to-r from-blue-500 to-purple-500 h-4 rounded-full"
-                    animate={{ width: ["0%", "100%"] }}
+                    animate={{ width: ['0%', '100%'] }}
                     transition={{ duration: 3, repeat: Infinity }}
                   />
                 </div>
@@ -866,47 +921,59 @@ function App() {
         )
 
       case 'results': {
-        const displayedName = formData.name || userProfile.name || ''
         const heroTitle =
           heroCopy.title ||
-          t('results.hero.title', {
-            name: displayedName || t('results.hero.defaultName', 'Future Scholar')
-          })
+          t('results.hero.title', { name: formData.name })
         const heroDescription =
           heroCopy.description ||
-          t('results.hero.description', 'Your personalized scholarship guide is ready!')
+          t(
+            'results.hero.description',
+            'Your personalized scholarship guide is ready!'
+          )
         const heroLevel = t('results.hero.level', { level })
         const heroXp = t('results.hero.xp', { xp })
+        const successProbabilityLabel = aiResults?.successProbability
 
         return (
           <div className="max-w-6xl mx-auto space-y-8">
-            {/* Hero Section + high level stats */}
+            {/* Hero Section */}
             <GameCard className="text-center">
               <motion.div
                 animate={{ rotate: [0, 360] }}
-                transition={{ duration: 3, ease: "easeInOut" }}
+                transition={{ duration: 3, ease: 'easeInOut' }}
                 className="w-20 h-20 mx-auto mb-6 bg-gradient-to-r from-yellow-400 to-orange-500 rounded-full flex items-center justify-center"
               >
                 <Star className="w-10 h-10 text-white" />
               </motion.div>
-              <h1 className="game-font text-4xl font-bold text-white mb-4">{heroTitle}</h1>
+              <h1 className="game-font text-4xl font-bold text-white mb-4">
+                {heroTitle}
+              </h1>
               <p className="text-xl text-gray-300 mb-6">{heroDescription}</p>
 
-              {/* Checklist */}
               {checklistItems.length > 0 ? (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-left mb-6">
                   {checklistItems.map((item, index) => (
-                    <div key={index} className="flex items-start space-x-3">
+                    <div
+                      key={index}
+                      className="flex items-start space-x-3"
+                    >
                       <CheckCircle
                         className={`w-5 h-5 mt-1 ${
-                          item.status === 'completed' ? 'text-green-400' : 'text-yellow-400'
+                          item.status === 'completed'
+                            ? 'text-green-400'
+                            : 'text-yellow-400'
                         }`}
                       />
                       <div>
                         <p className="text-white font-semibold">{item.item}</p>
                         <p className="text-sm text-gray-300">
-                          {t('results.checklist.status', { status: item.status })} •{' '}
-                          {t('results.checklist.urgency', { urgency: item.urgency })}
+                          {t('results.checklist.status', {
+                            status: item.status
+                          })}{' '}
+                          •{' '}
+                          {t('results.checklist.urgency', {
+                            urgency: item.urgency
+                          })}
                         </p>
                       </div>
                     </div>
@@ -915,12 +982,14 @@ function App() {
               ) : (
                 <p className="text-gray-400 mb-6">
                   {resultsCopy.checklist?.empty ||
-                    t('results.checklist.empty', 'No checklist items yet')}
+                    t(
+                      'results.checklist.empty',
+                      'No checklist items yet'
+                    )}
                 </p>
               )}
 
-              {/* Small stat pills */}
-              <div className="flex flex-wrap justify-center gap-3 text-sm mb-4">
+              <div className="flex justify-center space-x-4 text-sm mb-4">
                 <div className="bg-blue-500/20 px-4 py-2 rounded-full">
                   <Trophy className="inline w-4 h-4 mr-2" />
                   {heroLevel}
@@ -929,26 +998,13 @@ function App() {
                   <Star className="inline w-4 h-4 mr-2" />
                   {heroXp}
                 </div>
-                {typeof normalizedGPA !== 'undefined' && (
-                  <div className="bg-green-500/20 px-4 py-2 rounded-full flex items-center">
-                    <BarChart3 className="w-4 h-4 mr-2" />
-                    <span>{t('results.hero.gpa', { gpa: normalizedGPA })}</span>
-                  </div>
-                )}
-                {successProbability && (
-                  <div className="bg-yellow-500/20 px-4 py-2 rounded-full flex items-center">
-                    <Target className="w-4 h-4 mr-2" />
-                    <span>{t('results.hero.success', { value: successProbability })}</span>
-                  </div>
-                )}
-                {validationResult?.isValid === false && (
-                  <div className="bg-red-500/20 px-4 py-2 rounded-full flex items-center">
-                    <AlertTriangle className="w-4 h-4 mr-2" />
-                    <span>{t('results.hero.validationWarning', 'Needs cleanup')}</span>
+                {successProbabilityLabel && (
+                  <div className="bg-green-500/20 px-4 py-2 rounded-full">
+                    <BarChart3 className="inline w-4 h-4 mr-2" />
+                    {successProbabilityLabel}
                   </div>
                 )}
               </div>
-
               <StepNavigation
                 showBack
                 backLabel={navigationCopy.edit}
@@ -965,101 +1021,11 @@ function App() {
               />
             </GameCard>
 
-            {/* Profile & competitiveness summary */}
-            {(Object.keys(userProfile).length > 0 ||
-              Object.keys(competitivenessScore).length > 0 ||
-              Object.keys(competitivenessAnalysis).length > 0) && (
-              <GameCard>
-                <h2 className="game-font text-2xl font-bold text-white mb-4">
-                  {t('results.sections.profileSummary', '🎮 Your Profile Snapshot')}
-                </h2>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-sm">
-                  <div className="space-y-2">
-                    <h3 className="text-white font-semibold flex items-center gap-2">
-                      <User className="w-4 h-4 text-blue-400" />
-                      {t('results.profile.basicInfo', 'Basic info')}
-                    </h3>
-                    <p className="text-gray-300">
-                      <span className="font-semibold">{userProfile.name}</span>
-                    </p>
-                    {userProfile.fieldOfInterest && (
-                      <p className="text-gray-300">
-                        {t('results.profile.interest', 'Field:')}{' '}
-                        <span className="font-semibold">{userProfile.fieldOfInterest}</span>
-                      </p>
-                    )}
-                    {userProfile.targetDegree && (
-                      <p className="text-gray-300">
-                        {t('results.profile.targetDegree', 'Target degree:')}{' '}
-                        <span className="font-semibold">{userProfile.targetDegree}</span>
-                      </p>
-                    )}
-                    {userProfile.targetCountries && (
-                      <p className="text-gray-300">
-                        {t('results.profile.targets', 'Target countries:')}{' '}
-                        <span className="font-semibold">{userProfile.targetCountries}</span>
-                      </p>
-                    )}
-                  </div>
-
-                  <div className="space-y-2">
-                    <h3 className="text-white font-semibold flex items-center gap-2">
-                      <BarChart3 className="w-4 h-4 text-emerald-400" />
-                      {t('results.profile.competitiveness', 'Competitiveness')}
-                    </h3>
-                    {competitivenessScore?.gpa && (
-                      <p className="text-gray-300">
-                        {t('results.profile.gpaRating', 'GPA rating:')}{' '}
-                        <span className="font-semibold">{competitivenessScore.gpa}</span>
-                      </p>
-                    )}
-                    {competitivenessScore?.experience && (
-                      <p className="text-gray-300">
-                        {t('results.profile.experience', 'Experience:')}{' '}
-                        <span className="font-semibold">{competitivenessScore.experience}</span>
-                      </p>
-                    )}
-                    {competitivenessScore?.achievements && (
-                      <p className="text-gray-300">
-                        {t('results.profile.achievements', 'Achievements:')}{' '}
-                        <span className="font-semibold">
-                          {competitivenessScore.achievements}
-                        </span>
-                      </p>
-                    )}
-                    {competitivenessAnalysis?.gpaRating && (
-                      <p className="text-gray-300">
-                        {t('results.profile.gpaLabel', 'Overall GPA label:')}{' '}
-                        <span className="font-semibold">
-                          {competitivenessAnalysis.gpaRating}
-                        </span>
-                      </p>
-                    )}
-                  </div>
-
-                  {competitivenessAnalysis?.strengthAreas &&
-                    competitivenessAnalysis.strengthAreas.length > 0 && (
-                      <div className="space-y-2">
-                        <h3 className="text-white font-semibold flex items-center gap-2">
-                          <Star className="w-4 h-4 text-yellow-400" />
-                          {t('results.profile.strengths', 'Strength areas')}
-                        </h3>
-                        <ul className="list-disc list-inside text-gray-300 space-y-1">
-                          {competitivenessAnalysis.strengthAreas.map((s, i) => (
-                            <li key={i}>{s}</li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
-                </div>
-              </GameCard>
-            )}
-
-            {/* Universities Section - From AI Results */}
+            {/* Universities Section */}
             {universities.length > 0 && (
               <div>
                 <h2 className="game-font text-2xl font-bold text-white mb-6 text-center">
-                  {resultsSections.universities || t('results.sections.universities', '🎓 Recommended universities')}
+                  {resultsCopy.sections.universities}
                 </h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   {universities.map((uni, index) => (
@@ -1067,7 +1033,7 @@ function App() {
                       key={index}
                       initial={{ opacity: 0, y: 20 }}
                       animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: index * 0.1 }}
+                      transition={{ delay: index * 0.2 }}
                     >
                       <GameCard className="h-full">
                         <div className="flex items-center justify-between mb-4">
@@ -1078,57 +1044,57 @@ function App() {
                             })}
                           </div>
                         </div>
-                        <h3 className="font-bold text-white text-lg mb-1">{uni.name}</h3>
-                        <p className="text-gray-300 mb-3">
-                          {uni.city && `${uni.city}, `}{uni.country}
+                        <h3 className="font-bold text-white text-lg mb-2">
+                          {uni.name}
+                        </h3>
+                        <p className="text-gray-300 mb-4">
+                          {uni.country} • {uni.city}
                         </p>
-                        <div className="space-y-2 mb-4 text-sm text-gray-300">
-                          {uni.tuition && (
-                            <div className="flex items-center">
-                              <DollarSign className="w-4 h-4 mr-2" />
-                              {uni.tuition}
-                            </div>
-                          )}
-                          {uni.scholarships && (
-                            <div className="flex items-center">
-                              <Award className="w-4 h-4 mr-2" />
-                              {uni.scholarships}
-                            </div>
-                          )}
-                          {uni.requirements && (
-                            <div className="flex items-center">
-                              <CheckCircle className="w-4 h-4 mr-2" />
-                              {uni.requirements}
-                            </div>
-                          )}
-                          {uni.deadline && (
-                            <div className="flex items-center">
-                              <Clock className="w-4 h-4 mr-2" />
-                              {t('results.universities.deadline', { date: uni.deadline })}
-                            </div>
-                          )}
+                        <div className="space-y-2 mb-4">
+                          <div className="flex items-center text-sm text-gray-300">
+                            <DollarSign className="w-4 h-4 mr-2" />
+                            {uni.tuition}
+                          </div>
+                          <div className="flex items-center text-sm text-gray-300">
+                            <Award className="w-4 h-4 mr-2" />
+                            {uni.scholarships}
+                          </div>
+                          <div className="flex items-center text-sm text-gray-300">
+                            <Clock className="w-4 h-4 mr-2" />
+                            {uni.deadline}
+                          </div>
                         </div>
-                        {uni.reason && (
-                          <p className="text-sm text-gray-400 mb-4">{uni.reason}</p>
-                        )}
+                        <p className="text-sm text-gray-400 mb-4">
+                          {uni.reason}
+                        </p>
                         <div className="space-y-2">
                           <motion.button
                             whileHover={{ scale: 1.02 }}
                             whileTap={{ scale: 0.98 }}
-                            onClick={() => window.open(uni.websiteUrl || uni.mainUrl || '#', '_blank')}
+                            onClick={() =>
+                              window.open(
+                                uni.websiteUrl || uni.mainUrl || '#',
+                                '_blank'
+                              )
+                            }
                             className="w-full bg-blue-500 hover:bg-blue-600 text-white py-2 rounded-lg text-sm font-semibold transition-colors cursor-pointer"
                           >
                             <ExternalLink className="inline w-4 h-4 mr-2" />
-                            {resultsButtons.visitWebsite || t('results.buttons.visitWebsite', 'Visit website')}
+                            {resultsCopy.buttons.visitWebsite}
                           </motion.button>
                           <motion.button
                             whileHover={{ scale: 1.02 }}
                             whileTap={{ scale: 0.98 }}
-                            onClick={() => window.open(uni.applicationUrl || uni.applyUrl || '#', '_blank')}
+                            onClick={() =>
+                              window.open(
+                                uni.applicationUrl || uni.applyUrl || '#',
+                                '_blank'
+                              )
+                            }
                             className="w-full bg-purple-500 hover:bg-purple-600 text-white py-2 rounded-lg text-sm font-semibold transition-colors cursor-pointer"
                           >
                             <FileText className="inline w-4 h-4 mr-2" />
-                            {resultsButtons.applyNow || t('results.buttons.applyNow', 'Go to application')}
+                            {resultsCopy.buttons.applyNow}
                           </motion.button>
                         </div>
                       </GameCard>
@@ -1138,20 +1104,22 @@ function App() {
               </div>
             )}
 
-            {/* Scholarships Section - From AI Results */}
+            {/* Scholarships Section */}
             {scholarships.length > 0 && (
               <div>
                 <h2 className="game-font text-2xl font-bold text-white mb-6 text-center">
-                  {resultsSections.scholarships ||
-                    t('results.sections.scholarships', '💰 Scholarship matches')}
+                  {resultsCopy.sections.scholarships}
                 </h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   {scholarships.map((scholarship, index) => (
                     <motion.div
                       key={index}
-                      initial={{ opacity: 0, x: index % 2 === 0 ? -20 : 20 }}
+                      initial={{
+                        opacity: 0,
+                        x: index % 2 === 0 ? -20 : 20
+                      }}
                       animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: index * 0.15 }}
+                      transition={{ delay: index * 0.3 }}
                     >
                       <GameCard className="h-full">
                         <div className="flex items-center justify-between mb-4">
@@ -1175,7 +1143,9 @@ function App() {
                         <h3 className="font-bold text-white text-lg mb-2">
                           {scholarship.name}
                         </h3>
-                        <p className="text-blue-400 mb-2">{scholarship.provider}</p>
+                        <p className="text-blue-400 mb-2">
+                          {scholarship.provider}
+                        </p>
                         <div className="flex items-center text-sm text-gray-300 mb-4">
                           <Clock className="w-4 h-4 mr-2" />
                           {t('results.scholarships.deadline', {
@@ -1185,14 +1155,6 @@ function App() {
                         <p className="text-sm text-gray-400 mb-4">
                           {scholarship.description}
                         </p>
-                        {scholarship.eligibility && (
-                          <p className="text-xs text-gray-400 mb-4">
-                            <span className="font-semibold">
-                              {t('results.scholarships.eligibility', 'Eligibility:')}{' '}
-                            </span>
-                            {scholarship.eligibility}
-                          </p>
-                        )}
                         <motion.button
                           whileHover={{ scale: 1.02 }}
                           whileTap={{ scale: 0.98 }}
@@ -1207,7 +1169,7 @@ function App() {
                           className="w-full bg-gradient-to-r from-yellow-400 to-orange-500 text-white py-2 rounded-lg font-semibold transition-all cursor-pointer"
                         >
                           <Award className="inline w-4 h-4 mr-2" />
-                          {resultsButtons.applyNow || t('results.buttons.applyNow', 'Apply now')}
+                          {resultsCopy.buttons.applyNow}
                         </motion.button>
                       </GameCard>
                     </motion.div>
@@ -1223,37 +1185,30 @@ function App() {
               resourceGroups?.forums?.length) && (
               <div>
                 <h2 className="game-font text-2xl font-bold text-white mb-6 text-center">
-                  {resultsSections.resources ||
-                    t('results.sections.resources', '🔧 Essential tools & resources')}
+                  {resultsCopy.sections.resources}
                 </h2>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                   {[
                     {
-                      name: resultsResources.sop || t('results.resources.sop', 'SOP helpers'),
+                      name: resultsCopy.resources.sop,
                       icon: FileText,
                       color: 'bg-blue-500',
                       list: resourceGroups.sopTools
                     },
                     {
-                      name:
-                        resultsResources.resume ||
-                        t('results.resources.resume', 'CV / resume'),
+                      name: resultsCopy.resources.resume,
                       icon: User,
                       color: 'bg-green-500',
                       list: resourceGroups.resumeBuilders
                     },
                     {
-                      name:
-                        resultsResources.testPrep ||
-                        t('results.resources.testPrep', 'Test prep'),
+                      name: resultsCopy.resources.testPrep,
                       icon: BookOpen,
                       color: 'bg-purple-500',
                       list: resourceGroups.testPrep
                     },
                     {
-                      name:
-                        resultsResources.forums ||
-                        t('results.resources.forums', 'Community & forums'),
+                      name: resultsCopy.resources.forums,
                       icon: Users,
                       color: 'bg-orange-500',
                       list: resourceGroups.forums
@@ -1261,13 +1216,13 @@ function App() {
                   ].map((resource, index) => (
                     <motion.div
                       key={index}
-                      whileHover={{ scale: resource.list?.length ? 1.05 : 1 }}
-                      whileTap={{ scale: resource.list?.length ? 0.95 : 1 }}
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
                       onClick={() => {
                         const url = resource.list?.[0]?.url
                         if (url) window.open(url, '_blank')
                       }}
-                      className={resource.list?.length ? 'cursor-pointer' : 'opacity-50'}
+                      className="cursor-pointer"
                     >
                       <GameCard className="text-center p-6">
                         <div
@@ -1275,12 +1230,9 @@ function App() {
                         >
                           <resource.icon className="w-6 h-6 text-white" />
                         </div>
-                        <h3 className="text-white font-semibold text-sm">{resource.name}</h3>
-                        {resource.list?.[0]?.name && (
-                          <p className="mt-2 text-xs text-gray-300">
-                            {resource.list[0].name}
-                          </p>
-                        )}
+                        <h3 className="text-white font-semibold text-sm">
+                          {resource.name}
+                        </h3>
                       </GameCard>
                     </motion.div>
                   ))}
@@ -1288,12 +1240,14 @@ function App() {
               </div>
             )}
 
-            {/* Timeline Section from applicationChecklist.timeline */}
+            {/* Timeline Section */}
             {timelinePhases.length > 0 && (
               <div>
                 <h2 className="game-font text-2xl font-bold text-white mb-6 text-center">
-                  {resultsSections.timeline ||
-                    t('results.sections.timeline', '📅 Application phases')}
+                  {t(
+                    'results.sections.timeline',
+                    '📅 Your Roadmap'
+                  )}
                 </h2>
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                   {timelinePhases.map((phase, index) => (
@@ -1302,176 +1256,19 @@ function App() {
                         <Clock className="w-5 h-5 text-yellow-400" />
                       </div>
                       <p className="text-sm text-gray-400">{phase.phase}</p>
-                      <p className="text-white text-xl font-bold">{phase.duration}</p>
+                      <p className="text-white text-xl font-bold">
+                        {phase.duration}
+                      </p>
                     </GameCard>
                   ))}
                 </div>
               </div>
             )}
 
-            {/* ApplicationTimeline + Estimated costs */}
-            {(Object.keys(applicationTimeline).length > 0 ||
-              Object.keys(estimatedCosts).length > 0) && (
-              <GameCard>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {Object.keys(applicationTimeline).length > 0 && (
-                    <div>
-                      <h3 className="game-font text-xl font-bold text-white mb-3">
-                        {t('results.sections.microTimeline', '⏱ Micro-timeline')}
-                      </h3>
-                      <div className="space-y-2 text-sm text-gray-300">
-                        {applicationTimeline.immediate && (
-                          <div>
-                            <p className="font-semibold text-white">
-                              {t('results.timeline.immediate', 'Right now')}:
-                            </p>
-                            <ul className="list-disc list-inside">
-                              {applicationTimeline.immediate.map((item, i) => (
-                                <li key={i}>{item}</li>
-                              ))}
-                            </ul>
-                          </div>
-                        )}
-                        {applicationTimeline.oneMonth && (
-                          <div>
-                            <p className="font-semibold text-white">
-                              {t('results.timeline.oneMonth', 'Within 1 month')}:
-                            </p>
-                            <ul className="list-disc list-inside">
-                              {applicationTimeline.oneMonth.map((item, i) => (
-                                <li key={i}>{item}</li>
-                              ))}
-                            </ul>
-                          </div>
-                        )}
-                        {applicationTimeline.twoMonths && (
-                          <div>
-                            <p className="font-semibold text-white">
-                              {t('results.timeline.twoMonths', 'Within 2 months')}:
-                            </p>
-                            <ul className="list-disc list-inside">
-                              {applicationTimeline.twoMonths.map((item, i) => (
-                                <li key={i}>{item}</li>
-                              ))}
-                            </ul>
-                          </div>
-                        )}
-                        {applicationTimeline.threeMonths && (
-                          <div>
-                            <p className="font-semibold text-white">
-                              {t('results.timeline.threeMonths', 'Within 3 months+')}:
-                            </p>
-                            <ul className="list-disc list-inside">
-                              {applicationTimeline.threeMonths.map((item, i) => (
-                                <li key={i}>{item}</li>
-                              ))}
-                            </ul>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  )}
-
-                  {Object.keys(estimatedCosts).length > 0 && (
-                    <div>
-                      <h3 className="game-font text-xl font-bold text-white mb-3">
-                        {t('results.sections.costs', '💸 Estimated costs')}
-                      </h3>
-                      <div className="space-y-2 text-sm text-gray-300">
-                        {estimatedCosts.applicationFees && (
-                          <p>
-                            <span className="font-semibold">
-                              {t('results.costs.appFees', 'Application fees:')}{' '}
-                            </span>
-                            {estimatedCosts.applicationFees}
-                          </p>
-                        )}
-                        {estimatedCosts.testFees && (
-                          <p>
-                            <span className="font-semibold">
-                              {t('results.costs.testFees', 'Test fees:')}{' '}
-                            </span>
-                            {estimatedCosts.testFees}
-                          </p>
-                        )}
-                        {estimatedCosts.visaFees && (
-                          <p>
-                            <span className="font-semibold">
-                              {t('results.costs.visaFees', 'Visa & immigration:')}{' '}
-                            </span>
-                            {estimatedCosts.visaFees}
-                          </p>
-                        )}
-                        {estimatedCosts.totalEstimate && (
-                          <p>
-                            <span className="font-semibold">
-                              {t('results.costs.total', 'Total estimate:')}{' '}
-                            </span>
-                            {estimatedCosts.totalEstimate}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </GameCard>
-            )}
-
-            {/* Personalized next steps */}
-            {nextSteps.length > 0 && (
-              <GameCard>
-                <h3 className="game-font text-xl font-bold text-white mb-3">
-                  {t('results.sections.nextSteps', '🧭 Suggested next steps')}
-                </h3>
-                <ol className="list-decimal list-inside space-y-1 text-gray-300 text-sm">
-                  {nextSteps.map((step, i) => (
-                    <li key={i}>{step}</li>
-                  ))}
-                </ol>
-              </GameCard>
-            )}
-
-            {/* SOP outline */}
-            {sopOutline && (
-              <GameCard>
-                <h3 className="game-font text-xl font-bold text-white mb-3">
-                  {t('results.sections.sopOutline', '📝 SOP outline')}
-                </h3>
-                <pre className="whitespace-pre-wrap text-sm text-gray-200 bg-black/20 rounded-xl p-4 overflow-x-auto">
-                  {sopOutline.trim()}
-                </pre>
-              </GameCard>
-            )}
-
-            {/* Validation issues */}
-            {validationResult?.issues && validationResult.issues.length > 0 && (
-              <GameCard>
-                <h3 className="game-font text-xl font-bold text-white mb-3">
-                  {t('results.sections.validation', '⚠️ Things to fix before sending')}
-                </h3>
-                <ul className="list-disc list-inside text-sm text-gray-300 space-y-1">
-                  {validationResult.issues.map((issue, i) => (
-                    <li key={i}>{issue}</li>
-                  ))}
-                </ul>
-                <p className="text-xs text-gray-500 mt-3">
-                  {t(
-                    'results.validation.note',
-                    'The agent also checked for URLs, dollar amounts, and match percentages to be sure everything looks realistic.'
-                  )}{' '}
-                  ({t('results.validation.counts', {
-                    urls: validationResult.urlCount || 0,
-                    dollars: validationResult.dollarAmountCount || 0,
-                    matches: validationResult.matchPercentageCount || 0
-                  })})
-                </p>
-              </GameCard>
-            )}
-
             {/* Action Buttons */}
             <GameCard className="text-center">
               <h3 className="game-font text-xl font-bold text-white mb-4">
-                {resultsActions.title || t('results.actions.title', 'Ready for your next quest?')}
+                {resultsCopy.actions.title}
               </h3>
               <div className="flex flex-col sm:flex-row gap-4 justify-center">
                 <motion.button
@@ -1481,7 +1278,7 @@ function App() {
                   className="bg-gradient-to-r from-blue-500 to-purple-500 text-white px-6 py-3 rounded-xl font-bold"
                 >
                   <Rocket className="inline w-5 h-5 mr-2" />
-                  {resultsActions.startNew || t('results.actions.startNew', 'Start new profile')}
+                  {resultsCopy.actions.startNew}
                 </motion.button>
                 <motion.button
                   whileHover={{ scale: 1.05 }}
@@ -1494,7 +1291,7 @@ function App() {
                   className="bg-gradient-to-r from-yellow-400 to-orange-500 text-white px-6 py-3 rounded-xl font-bold"
                 >
                   <ExternalLink className="inline w-5 h-5 mr-2" />
-                  {resultsActions.viewGuide || t('results.actions.viewGuide', 'Open full guide')}
+                  {resultsCopy.actions.viewGuide}
                 </motion.button>
               </div>
             </GameCard>
@@ -1509,7 +1306,7 @@ function App() {
 
   useEffect(() => {
     if (currentStep === steps.length - 2 && !isSubmitting) {
-      // Optionally auto-submit here if you want
+      // Reserved: auto-submit behavior if you want later
     }
   }, [currentStep, isSubmitting])
 
@@ -1517,20 +1314,27 @@ function App() {
     <div className="min-h-screen relative overflow-hidden">
       <StarField />
       {showConfetti && <Confetti />}
-      
-      <GameProgress 
-        currentStep={currentStep} 
-        totalSteps={steps.length - 1} 
-        xp={xp} 
-        level={level} 
+
+      <GameProgress
+        currentStep={currentStep}
+        totalSteps={steps.length - 1}
+        xp={xp}
+        level={level}
         labels={{
           level: t('progress.level', { level }),
           xp: t('progress.xp', { xp }),
-          quest: t('progress.quest', { current: currentStep, total: steps.length - 1 })
+          quest: t('progress.quest', {
+            current: currentStep,
+            total: steps.length - 1
+          })
         }}
       />
 
-      <LanguageSwitcher currentLanguage={language} onChange={handleLanguageChange} t={t} />
+      <LanguageSwitcher
+        currentLanguage={language}
+        onChange={handleLanguageChange}
+        t={t}
+      />
 
       <Achievement
         {...achievementData}
@@ -1539,9 +1343,7 @@ function App() {
       />
 
       <div className="relative z-10 container mx-auto px-4 py-20">
-        <AnimatePresence mode="wait">
-          {renderStepContent()}
-        </AnimatePresence>
+        <AnimatePresence mode="wait">{renderStepContent()}</AnimatePresence>
       </div>
     </div>
   )
