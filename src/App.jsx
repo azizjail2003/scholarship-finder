@@ -1119,7 +1119,7 @@ function App() {
   useEffect(() => {
     if (currentStep === steps.length - 2 && !isSubmitting) {
       // Auto-submit when reaching the 'complete' step (second to last)
-      // Results step is the last step
+      // Results step is the last step hhhh
     }
   }, [currentStep])
 
