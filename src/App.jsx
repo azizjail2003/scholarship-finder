@@ -327,10 +327,15 @@ const computeProgress = (targetIndex) => {
 const safeParseJSON = (value, fallback) => {
   if (value == null) return fallback
   if (typeof value === 'string') {
+    const trimmed = value.trim()
+    // Only attempt to parse if it looks like JSON
+    if (!trimmed.startsWith('{') && !trimmed.startsWith('[')) {
+      return fallback
+    }
     try {
-      return JSON.parse(value)
+      return JSON.parse(trimmed)
     } catch (error) {
-      console.warn('Failed to parse JSON value', value, error)
+      console.warn('Failed to parse JSON value', error)
       return fallback
     }
   }
@@ -368,11 +373,11 @@ function App() {
     ...storedFormData,
     languagePreference: initialLanguage
   }))
-  const parsedResults = ensureObject(aiResults?.data, {})
-  const recommendationData = ensureObject(parsedResults.recommendations, {})
+  // aiResults may either be the whole object or wrapped in a .data field
+  const parsedResults = ensureObject(aiResults?.data ?? aiResults, {})
   const linkData = ensureObject(parsedResults.linksData, {})
-  const checklistItems = ensureArray(recommendationData.checklist)
-  const timelinePhases = ensureArray(recommendationData.timeline)
+  const checklistItems = ensureArray(parsedResults.applicationChecklist?.documents)
+  const timelinePhases = ensureArray(parsedResults.applicationChecklist?.timeline)
   const universities = ensureArray(linkData.universities)
   const scholarships = ensureArray(linkData.scholarships)
   const resourceGroups = ensureObject(linkData.resources)
@@ -484,28 +489,41 @@ function App() {
         body: JSON.stringify(formData)
       })
 
-      if (response.ok) {
-        const result = await response.json()
-        const responseData = Array.isArray(result) ? result[0] : result
-        
-        if (responseData.success) {
-          // Store the AI results
-          setAiResults(responseData)
-          showAchievementPopup(
-            t('achievement.questCompleteTitle'),
-            t('achievement.questCompleteDescription'),
-            Trophy
-          )
-          setShowConfetti(true)
-          
-          // Instead of redirecting, show results in the app
-          setTimeout(() => {
-            nextStep()
-          }, 2000)
-        }
-      } else {
+      if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`)
       }
+
+      const raw = await response.json()
+      let core = raw
+
+      // n8n may return [ {...} ] or { success, data: [...] } or { success, data: {...} }
+      if (Array.isArray(core)) {
+        core = core[0] || {}
+      } else if (core && typeof core === 'object') {
+        if (Array.isArray(core.data)) {
+          core = core.data[0] || {}
+        } else if (core.data && typeof core.data === 'object') {
+          core = core.data
+        }
+      }
+
+      if (!core || typeof core !== 'object') {
+        throw new Error('Unexpected response format from server')
+      }
+
+      // Store the AI results in normalized form
+      setAiResults(core)
+      showAchievementPopup(
+        t('achievement.questCompleteTitle'),
+        t('achievement.questCompleteDescription'),
+        Trophy
+      )
+      setShowConfetti(true)
+      
+      // Move to results step after a short celebration
+      setTimeout(() => {
+        nextStep()
+      }, 2000)
     } catch (error) {
       console.error('Submission error:', error)
       alert(t('alerts.questFailed'))
@@ -830,8 +848,8 @@ function App() {
         )
 
       case 'results': {
-        const heroTitle = recommendationData.hero?.title || t('results.hero.title', { name: formData.name })
-        const heroDescription = recommendationData.hero?.description || resultsCopy.hero.description
+        const heroTitle = heroCopy.title || t('results.hero.title', { name: formData.name })
+        const heroDescription = heroCopy.description || t('results.hero.description', 'Your personalized scholarship guide is ready!')
         const heroLevel = t('results.hero.level', { level })
         const heroXp = t('results.hero.xp', { xp })
 
