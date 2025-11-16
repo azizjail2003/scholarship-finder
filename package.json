@@ -9,10 +9,12 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@hcaptcha/react-hcaptcha": "^1.14.0",
     "framer-motion": "^10.16.4",
+    "html2canvas": "^1.4.1",
     "i18next": "^25.6.2",
+    "jspdf": "^2.5.2",
     "lucide-react": "^0.294.0",
-    "jspdf": "^2.5.1",
     "react": "^18.2.0",
     "react-confetti": "^6.1.0",
     "react-dom": "^18.2.0",
