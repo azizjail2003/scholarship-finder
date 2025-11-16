@@ -136,7 +136,11 @@
     "sections": {
       "universities": "🏛️ Meilleures universités",
       "scholarships": "💰 Meilleures bourses",
-      "resources": "🛠️ Ressources utiles"
+      "resources": "🛠️ Ressources utiles",
+      "timeline": "📅 Votre feuille de route",
+      "sopOutline": "📝 Plan de lettre de motivation",
+      "competitiveness": "🎯 Compétitivité",
+      "costs": "💰 Coûts estimés"
     },
     "universities": {
       "match": "Correspondance {{value}}"
@@ -154,6 +158,15 @@
       "resume": "Créateurs de CV",
       "testPrep": "Préparation aux tests",
       "forums": "Forums étudiants"
+    },
+    "insights": {
+      "gpaRating": "Évaluation du GPA : {{rating}}"
+    },
+    "costs": {
+      "applicationFees": "Frais de candidature : {{value}}",
+      "testFees": "Frais de tests : {{value}}",
+      "visaFees": "Frais de visa : {{value}}",
+      "totalEstimate": "Coût total estimé : {{value}}"
     },
     "actions": {
       "title": "Prêt pour votre prochaine quête ?",
