@@ -67,7 +67,8 @@ const LanguageSwitcher = ({ currentLanguage, onChange, t }) => (
     </div>
   </div>
 )
-//test
+
+// Step navigation buttons (Back / Primary)
 const StepNavigation = ({
   showBack,
   backLabel,
@@ -105,6 +106,38 @@ const StepNavigation = ({
     </motion.button>
   </div>
 )
+
+// Bottom navigation between sections
+const SectionNavigator = ({ currentStep, steps, stepsCopy, onJump }) => {
+  return (
+    <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-40 w-full px-4 sm:px-0">
+      <div className="max-w-4xl mx-auto glass-morphism rounded-2xl px-3 sm:px-4 py-3 border border-white/10">
+        <div className="flex gap-2 overflow-x-auto no-scrollbar">
+          {steps.map((step, index) => {
+            const copy = stepsCopy?.[step.id] || {}
+            const label = copy.navLabel || copy.title || step.id
+            const isActive = index === currentStep
+
+            return (
+              <button
+                key={step.id}
+                onClick={() => onJump(index)}
+                className={`flex items-center flex-shrink-0 px-3 sm:px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all border ${
+                  isActive
+                    ? 'bg-gradient-to-r from-blue-500 to-purple-500 text-white border-transparent shadow-lg shadow-blue-500/30'
+                    : 'bg-white/5 text-gray-200 border-white/15 hover:bg-white/10'
+                }`}
+              >
+                <step.icon className="w-4 h-4 mr-2 flex-shrink-0" />
+                <span className="whitespace-nowrap">{label}</span>
+              </button>
+            )
+          })}
+        </div>
+      </div>
+    </div>
+  )
+}
 
 const StarField = () => {
   const [stars, setStars] = useState([])
@@ -777,14 +810,14 @@ function App() {
                 />
               </div>
             </div>
-            <motion.button
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              onClick={nextStep}
-              className="w-full mt-8 bg-gradient-to-r from-blue-500 to-purple-500 text-white py-4 rounded-xl font-bold text-lg neon-glow"
-            >
-              {stepCopy.button} <Star className="inline w-5 h-5 ml-2" />
-            </motion.button>
+            <StepNavigation
+              showBack
+              backLabel={navigationCopy.back}
+              onBack={prevStep}
+              primaryLabel={stepCopy.button}
+              primaryIcon={Star}
+              onPrimary={nextStep}
+            />
           </GameCard>
         )
 
@@ -830,14 +863,14 @@ function App() {
                 />
               </div>
             </div>
-            <motion.button
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              onClick={nextStep}
-              className="w-full mt-8 bg-gradient-to-r from-blue-500 to-purple-500 text-white py-4 rounded-xl font-bold text-lg neon-glow"
-            >
-              {stepCopy.button} <Star className="inline w-5 h-5 ml-2" />
-            </motion.button>
+            <StepNavigation
+              showBack
+              backLabel={navigationCopy.back}
+              onBack={prevStep}
+              primaryLabel={stepCopy.button}
+              primaryIcon={Star}
+              onPrimary={nextStep}
+            />
           </GameCard>
         )
 
@@ -869,14 +902,14 @@ function App() {
                 placeholder={formPlaceholders.achievements}
               />
             </div>
-            <motion.button
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              onClick={nextStep}
-              className="w-full mt-8 bg-gradient-to-r from-blue-500 to-purple-500 text-white py-4 rounded-xl font-bold text-lg neon-glow"
-            >
-              {stepCopy.button} <Star className="inline w-5 h-5 ml-2" />
-            </motion.button>
+            <StepNavigation
+              showBack
+              backLabel={navigationCopy.back}
+              onBack={prevStep}
+              primaryLabel={stepCopy.button}
+              primaryIcon={Star}
+              onPrimary={nextStep}
+            />
           </GameCard>
         )
 
@@ -996,10 +1029,7 @@ function App() {
         })
         const heroDescription =
           resultsCopy.hero?.description ||
-          t(
-            'results.hero.description',
-            'Your personalized scholarship guide is ready!'
-          )
+          t('results.hero.description', 'Your personalized scholarship guide is ready!')
         const heroLevel = t('results.hero.level', { level })
         const heroXp = t('results.hero.xp', { xp })
 
@@ -1470,6 +1500,13 @@ function App() {
         {...achievementData}
         show={showAchievement}
         onHide={() => setShowAchievement(false)}
+      />
+
+      <SectionNavigator
+        currentStep={currentStep}
+        steps={steps}
+        stepsCopy={stepsCopy}
+        onJump={jumpToStep}
       />
 
       <div className="relative z-10 container mx-auto px-4 py-20">
