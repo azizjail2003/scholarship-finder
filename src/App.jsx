@@ -309,6 +309,7 @@ const defaultFormData = {
 
 const FORM_STORAGE_KEY = 'scholarshipQuest.form'
 const STEP_STORAGE_KEY = 'scholarshipQuest.step'
+const RESULTS_STORAGE_KEY = 'scholarshipQuest.results'
 
 const getStoredFormData = () => {
   if (typeof window !== 'undefined') {
@@ -332,6 +333,20 @@ const getStoredStep = () => {
     }
   }
   return 0
+}
+
+const getStoredResults = () => {
+  if (typeof window !== 'undefined') {
+    const saved = window.localStorage.getItem(RESULTS_STORAGE_KEY)
+    if (saved) {
+      try {
+        return JSON.parse(saved)
+      } catch (e) {
+        console.warn('Failed to parse stored results', e)
+      }
+    }
+  }
+  return null
 }
 
 const computeProgress = (targetIndex) => {
@@ -368,7 +383,6 @@ const ensureObject = (value, fallback = {}) => {
   return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : fallback
 }
 
-// Helpers to show readable text for status/urgency (no more raw i18n keys)
 const formatStatus = (status) => {
   if (!status) return 'Pending'
   const s = String(status).toLowerCase()
@@ -389,8 +403,10 @@ const formatUrgency = (urgency) => {
 
 function App() {
   const { t, i18n } = useTranslation()
+
   const storedFormData = useMemo(() => getStoredFormData(), [])
   const storedStep = useMemo(() => getStoredStep(), [])
+  const storedResults = useMemo(() => getStoredResults(), [])
   const initialLanguage = storedFormData.languagePreference || i18n.language || 'en'
   const initialProgress = useMemo(() => computeProgress(storedStep), [storedStep])
 
@@ -401,21 +417,32 @@ function App() {
   const [achievementData, setAchievementData] = useState({})
   const [showConfetti, setShowConfetti] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [aiResults, setAiResults] = useState(null)
+  const [aiResults, setAiResults] = useState(storedResults)
   const [language, setLanguage] = useState(initialLanguage)
 
   const [formData, setFormData] = useState(() => ({
     ...storedFormData,
     languagePreference: initialLanguage
-  }))
+  })
 
-  // Normalize n8n data shape (incoming as { success, data: {...} })
+  )
+
+  // If we land on "results" with no stored results, push user back to previous step
+  useEffect(() => {
+    if (currentStep === steps.length - 1 && !storedResults) {
+      setCurrentStep(steps.length - 2)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   const parsedResults = ensureObject(aiResults?.data ?? aiResults, {})
   const linkData = parsedResults
   const universities = ensureArray(linkData.universities)
   const scholarships = ensureArray(linkData.scholarships)
   const resourceGroups = ensureObject(linkData.resources)
-  const timelinePhases = ensureArray(parsedResults.applicationTimeline?.timeline || parsedResults.applicationChecklist?.timeline)
+  const timelinePhases = ensureArray(
+    parsedResults.applicationTimeline?.timeline || parsedResults.applicationChecklist?.timeline
+  )
   const checklistItems = ensureArray(parsedResults.applicationChecklist?.documents)
 
   useEffect(() => {
@@ -429,6 +456,14 @@ function App() {
       window.localStorage.setItem(STEP_STORAGE_KEY, String(currentStep))
     }
   }, [currentStep])
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      if (aiResults) {
+        window.localStorage.setItem(RESULTS_STORAGE_KEY, JSON.stringify(aiResults))
+      }
+    }
+  }, [aiResults])
 
   const handleLanguageChange = (lang) => {
     setLanguage(lang)
@@ -548,7 +583,7 @@ function App() {
         core = core[0] || {}
       } else if (core && typeof core === 'object') {
         if (core.data && typeof core.data === 'object') {
-          core = core // we keep full shape; we handle .data later via parsedResults
+          core = core // keep as-is; we handle .data in parsedResults
         }
       }
 
@@ -566,7 +601,7 @@ function App() {
       setShowConfetti(true)
 
       setTimeout(() => {
-        jumpToStep(steps.length - 1) // jump directly to results
+        jumpToStep(steps.length - 1)
       }, 2000)
     } catch (error) {
       console.error('Submission error:', error)
@@ -577,7 +612,6 @@ function App() {
     }
   }
 
-  // --- PDF GENERATION (advanced, multi-section, with navigation) ---
   const handleDownloadPdf = () => {
     if (!universities.length && !scholarships.length && !checklistItems.length) {
       alert('No results available to generate a report yet.')
@@ -636,7 +670,7 @@ function App() {
     const addSectionCard = (y, title, lines) => {
       const padding = 5
       const cardX = marginX
-      const cardY = y
+      const cardY = Number(y)
       const lineHeight = 5
 
       const textLines = []
@@ -771,7 +805,7 @@ function App() {
     doc.addPage()
     let y = addHeaderBar('Profile Overview', 'Your academic snapshot', 1)
 
-    y = addSectionCard('' + y, 'Basic Details', [
+    y = addSectionCard(y, 'Basic Details', [
       `Name: ${formData.name || ''}`,
       `Email: ${formData.email || ''}`,
       `Age: ${formData.age || ''}`,
@@ -1065,7 +1099,7 @@ function App() {
             <div className="text-center mb-8">
               <Target className="w-16 h-16 mx-auto mb-4 text-blue-400" />
               <h2 className="game-font text-3xl font-bold text-white mb-2">{stepCopy.title}</h2>
-              <p className="text-gray-300">{stepCopy.description}</p>
+            <p className="text-gray-300">{stepCopy.description}</p>
             </div>
             <div className="space-y-6">
               <GameInput
@@ -1237,6 +1271,33 @@ function App() {
         )
 
       case 'results': {
+        // If somehow we are on results without data, show a small recovery UI
+        if (!aiResults) {
+          return (
+            <GameCard className="max-w-xl mx-auto text-center">
+              <AlertTriangle className="w-10 h-10 text-yellow-400 mx-auto mb-4" />
+              <h2 className="game-font text-2xl font-bold text-white mb-2">
+                Session resumed but no results
+              </h2>
+              <p className="text-gray-300 mb-6">
+                It looks like your browser refreshed while we were generating your guide. You can
+                resubmit your answers to generate a fresh report.
+              </p>
+              <StepNavigation
+                showBack
+                backLabel={navigationCopy.back}
+                onBack={() => jumpToStep(steps.length - 2)}
+                primaryLabel="Re-run quest"
+                primaryIcon={Rocket}
+                onPrimary={() => {
+                  jumpToStep(steps.length - 2)
+                  submitForm()
+                }}
+              />
+            </GameCard>
+          )
+        }
+
         const heroTitle =
           heroCopy.title || t('results.hero.title', { name: formData.name || 'Explorer' })
         const heroDescription =
@@ -1247,7 +1308,6 @@ function App() {
 
         return (
           <div className="max-w-6xl mx-auto space-y-8">
-            {/* Hero + Checklist + PDF */}
             <GameCard className="text-center">
               <motion.div
                 animate={{ rotate: [0, 360] }}
@@ -1295,7 +1355,6 @@ function App() {
                 </div>
               </div>
 
-              {/* PDF Download Button */}
               <div className="flex flex-col sm:flex-row gap-4 justify-center mb-4">
                 <motion.button
                   whileHover={{ scale: 1.05 }}
@@ -1318,13 +1377,13 @@ function App() {
                 onPrimary={() => {
                   window.localStorage.removeItem(FORM_STORAGE_KEY)
                   window.localStorage.removeItem(STEP_STORAGE_KEY)
+                  window.localStorage.removeItem(RESULTS_STORAGE_KEY)
                   window.location.reload()
                 }}
                 primaryClassName="bg-gradient-to-r from-blue-500 to-purple-500 text-white"
               />
             </GameCard>
 
-            {/* Universities Section */}
             {universities.length > 0 && (
               <div>
                 <h2 className="game-font text-2xl font-bold text-white mb-6 text-center">
@@ -1397,7 +1456,6 @@ function App() {
               </div>
             )}
 
-            {/* Scholarships Section */}
             {scholarships.length > 0 && (
               <div>
                 <h2 className="game-font text-2xl font-bold text-white mb-6 text-center">
@@ -1460,7 +1518,6 @@ function App() {
               </div>
             )}
 
-            {/* Resources Section */}
             {(resourceGroups?.sopTools?.length ||
               resourceGroups?.resumeBuilders?.length ||
               resourceGroups?.testPrep?.length ||
@@ -1520,7 +1577,6 @@ function App() {
               </div>
             )}
 
-            {/* Timeline Section */}
             {timelinePhases.length > 0 && (
               <div>
                 <h2 className="game-font text-2xl font-bold text-white mb-6 text-center">
@@ -1540,7 +1596,6 @@ function App() {
               </div>
             )}
 
-            {/* Actions */}
             <GameCard className="text-center">
               <h3 className="game-font text-xl font-bold text-white mb-4">
                 {resultsActions.title || 'What’s next?'}
@@ -1578,12 +1633,6 @@ function App() {
         return null
     }
   }
-
-  useEffect(() => {
-    if (currentStep === steps.length - 2 && !isSubmitting) {
-      // keep manual submit
-    }
-  }, [currentStep, isSubmitting])
 
   return (
     <div className="min-h-screen relative overflow-hidden">
