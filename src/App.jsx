@@ -1298,13 +1298,25 @@ function App() {
           )
         }
 
-        const heroTitle =
-          heroCopy.title || t('results.hero.title', { name: formData.name || 'Explorer' })
-        const heroDescription =
-          heroCopy.description ||
-          t('results.hero.description', 'Your personalized scholarship guide is ready!')
-        const heroLevel = t('results.hero.level', { level })
-        const heroXp = t('results.hero.xp', { xp })
+        // Safely resolve the user's name
+const userName = formData.name && formData.name.trim().length > 0
+  ? formData.name.trim()
+  : 'Explorer'
+
+// Get the raw title from either backend copy or i18n
+let heroTitle =
+  heroCopy.title || t('results.hero.title', { name: userName })
+
+// Manually replace {{name}} if it comes from a plain string like "🎉 Your Perfect Matches, {{name}}!"
+heroTitle = heroTitle.replace(/{{\s*name\s*}}/g, userName)
+
+const heroDescription =
+  heroCopy.description ||
+  t('results.hero.description', 'Your personalized scholarship guide is ready!')
+
+const heroLevel = t('results.hero.level', { level })
+const heroXp = t('results.hero.xp', { xp })
+
 
         return (
           <div className="max-w-6xl mx-auto space-y-8">
