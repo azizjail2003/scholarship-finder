@@ -262,7 +262,8 @@ const GameInput = ({
   options,
   required = false,
   placeholder,
-  selectPlaceholder = 'Select...'
+  selectPlaceholder = 'Select...',
+  error
 }) => (
   <div className="space-y-2">
     <label className="flex items-center space-x-2 text-white font-semibold">
@@ -274,7 +275,9 @@ const GameInput = ({
       <select
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full p-4 bg-game-card border border-white/20 rounded-xl text-white focus:border-blue-400 focus:ring-2 focus:ring-blue-400/20 transition-all"
+        className={`w-full p-4 bg-game-card border rounded-xl text-white focus:border-blue-400 focus:ring-2 focus:ring-blue-400/20 transition-all ${
+          error ? 'border-red-400' : 'border-white/20'
+        }`}
         required={required}
       >
         <option value="">{selectPlaceholder}</option>
@@ -289,7 +292,9 @@ const GameInput = ({
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
-        className="w-full p-4 bg-game-card border border-white/20 rounded-xl text-white focus:border-blue-400 focus:ring-2 focus:ring-blue-400/20 transition-all min-h-[100px] resize-none"
+        className={`w-full p-4 bg-game-card border rounded-xl text-white focus:border-blue-400 focus:ring-2 focus:ring-blue-400/20 transition-all min-h-[100px] resize-none ${
+          error ? 'border-red-400' : 'border-white/20'
+        }`}
         required={required}
       />
     ) : (
@@ -298,11 +303,16 @@ const GameInput = ({
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
-        className="w-full p-4 bg-game-card border border-white/20 rounded-xl text-white focus:border-blue-400 focus:ring-2 focus:ring-blue-400/20 transition-all"
+        className={`w-full p-4 bg-game-card border rounded-xl text-white focus:border-blue-400 focus:ring-2 focus:ring-blue-400/20 transition-all ${
+          error ? 'border-red-400' : 'border-white/20'
+        }`}
         required={required}
         min={type === 'number' ? 16 : undefined}
         max={type === 'number' ? 100 : undefined}
       />
+    )}
+    {error && (
+      <p className="text-sm text-red-400">{error}</p>
     )}
   </div>
 )
@@ -314,6 +324,7 @@ const steps = [
   { id: 'goals', icon: Target, xpReward: 200 },
   { id: 'experience', icon: Award, xpReward: 150 },
   { id: 'preferences', icon: MapPin, xpReward: 100 },
+  { id: 'review', icon: FileText, xpReward: 50 },
   { id: 'complete', icon: Trophy, xpReward: 500 },
   { id: 'results', icon: Star, xpReward: 1000 }
 ]
@@ -347,6 +358,7 @@ const defaultFormData = {
 const FORM_STORAGE_KEY = 'scholarshipQuest.form'
 const STEP_STORAGE_KEY = 'scholarshipQuest.step'
 const RESULTS_STORAGE_KEY = 'scholarshipQuest.results'
+const FAVORITES_STORAGE_KEY = 'scholarshipQuest.favorites'
 
 const getStoredFormData = () => {
   if (typeof window !== 'undefined') {
@@ -420,6 +432,30 @@ const ensureObject = (value, fallback = {}) => {
   return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : fallback
 }
 
+const getStoredFavorites = () => {
+  if (typeof window !== 'undefined') {
+    const saved = window.localStorage.getItem(FAVORITES_STORAGE_KEY)
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved)
+        return {
+          universities: Array.isArray(parsed.universities) ? parsed.universities : [],
+          scholarships: Array.isArray(parsed.scholarships) ? parsed.scholarships : []
+        }
+      } catch (error) {
+        console.warn('Failed to parse stored favorites', error)
+      }
+    }
+  }
+  return { universities: [], scholarships: [] }
+}
+
+const getUniversityKey = (uni) =>
+  `${uni?.name || ''}::${uni?.country || ''}::${uni?.city || ''}`
+
+const getScholarshipKey = (scholarship) =>
+  `${scholarship?.name || ''}::${scholarship?.provider || ''}`
+
 function App() {
   const { t, i18n } = useTranslation()
 
@@ -441,6 +477,15 @@ function App() {
   const [language, setLanguage] = useState(initialLanguage)
   const [limitMessage, setLimitMessage] = useState(null)
   const [captchaToken, setCaptchaToken] = useState(null)
+  const [errors, setErrors] = useState({})
+  const [toast, setToast] = useState(null)
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false)
+  const [favorites, setFavorites] = useState(() => getStoredFavorites())
+  const [universitySort, setUniversitySort] = useState('match')
+  const [universityCountryFilter, setUniversityCountryFilter] = useState('all')
+  const [universityDegreeFilter, setUniversityDegreeFilter] = useState('all')
+  const [universityMinMatch, setUniversityMinMatch] = useState(0)
+  const [scholarshipSort, setScholarshipSort] = useState('deadline')
 
   const [formData, setFormData] = useState(() => ({
     ...storedFormData,
@@ -494,6 +539,29 @@ function App() {
     }
   }, [aiResults])
 
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      window.localStorage.setItem(FAVORITES_STORAGE_KEY, JSON.stringify(favorites))
+    }
+  }, [favorites])
+
+  useEffect(() => {
+    if (!toast) return
+    const timer = setTimeout(() => setToast(null), 4000)
+    return () => clearTimeout(timer)
+  }, [toast])
+
+  useEffect(() => {
+    const handleKeyDown = (event) => {
+      if (event.key === 'Escape') {
+        setShowAchievement(false)
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [])
+
   const handleLanguageChange = (lang) => {
     setLanguage(lang)
     i18n.changeLanguage(lang)
@@ -523,6 +591,36 @@ function App() {
   const showAchievementPopup = (title, description, icon) => {
     setAchievementData({ title, description, icon })
     setShowAchievement(true)
+  }
+
+  const showToast = (type, message) => {
+    setToast({ type, message })
+  }
+
+  const toggleFavoriteUniversity = (uni) => {
+    const key = getUniversityKey(uni)
+    setFavorites((prev) => {
+      const exists = prev.universities.includes(key)
+      return {
+        ...prev,
+        universities: exists
+          ? prev.universities.filter((k) => k !== key)
+          : [...prev.universities, key]
+      }
+    })
+  }
+
+  const toggleFavoriteScholarship = (scholarship) => {
+    const key = getScholarshipKey(scholarship)
+    setFavorites((prev) => {
+      const exists = prev.scholarships.includes(key)
+      return {
+        ...prev,
+        scholarships: exists
+          ? prev.scholarships.filter((k) => k !== key)
+          : [...prev.scholarships, key]
+      }
+    })
   }
 
   const jumpToStep = (targetIndex) => {
@@ -570,6 +668,153 @@ function App() {
     }
   }
 
+  const validateStep = (stepId) => {
+    const stepErrors = {}
+    const fieldsInStep = []
+
+    if (stepId === 'personal') {
+      fieldsInStep.push('name', 'email', 'age', 'nationality')
+
+      if (!formData.name || !formData.name.trim()) {
+        stepErrors.name = t(
+          'validation.nameRequired',
+          'Please enter your full name.'
+        )
+      }
+
+      if (!formData.email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+        stepErrors.email = t(
+          'validation.emailInvalid',
+          'Please enter a valid email address.'
+        )
+      }
+
+      const ageNumber = Number(formData.age)
+      if (!ageNumber || ageNumber < 16 || ageNumber > 100) {
+        stepErrors.age = t(
+          'validation.ageInvalid',
+          'Please enter a realistic age between 16 and 100.'
+        )
+      }
+
+      if (!formData.nationality || !formData.nationality.trim()) {
+        stepErrors.nationality = t(
+          'validation.nationalityRequired',
+          'Please enter your nationality.'
+        )
+      }
+    } else if (stepId === 'education') {
+      fieldsInStep.push('currentEducation', 'gpa', 'englishLevel')
+
+      if (!formData.currentEducation || !formData.currentEducation.trim()) {
+        stepErrors.currentEducation = t(
+          'validation.currentEducationRequired',
+          'Please describe your current education.'
+        )
+      }
+
+      if (!formData.gpa || !formData.gpa.trim()) {
+        stepErrors.gpa = t(
+          'validation.gpaRequired',
+          'Please enter your GPA or grade.'
+        )
+      }
+
+      if (!formData.englishLevel || !formData.englishLevel.trim()) {
+        stepErrors.englishLevel = t(
+          'validation.englishLevelRequired',
+          'Please describe your English proficiency.'
+        )
+      }
+    } else if (stepId === 'goals') {
+      fieldsInStep.push('fieldOfInterest', 'targetDegree', 'budget')
+
+      if (!formData.fieldOfInterest || !formData.fieldOfInterest.trim()) {
+        stepErrors.fieldOfInterest = t(
+          'validation.fieldOfInterestRequired',
+          'Please enter your field of interest.'
+        )
+      }
+
+      if (!formData.targetDegree || !formData.targetDegree.trim()) {
+        stepErrors.targetDegree = t(
+          'validation.targetDegreeRequired',
+          'Please choose a target degree.'
+        )
+      }
+
+      if (!formData.budget || !formData.budget.trim()) {
+        stepErrors.budget = t(
+          'validation.budgetRequired',
+          'Please specify your funding needs.'
+        )
+      }
+    } else if (stepId === 'experience') {
+      fieldsInStep.push('workExperience', 'achievements')
+
+      if (!formData.workExperience || !formData.workExperience.trim()) {
+        stepErrors.workExperience = t(
+          'validation.workExperienceRequired',
+          'Please describe your work experience, or write "None".'
+        )
+      }
+
+      if (!formData.achievements || !formData.achievements.trim()) {
+        stepErrors.achievements = t(
+          'validation.achievementsRequired',
+          'Please list your main achievements, or write "None".'
+        )
+      }
+    } else if (stepId === 'preferences') {
+      fieldsInStep.push('targetCountries', 'preferences')
+
+      if (!formData.targetCountries || !formData.targetCountries.trim()) {
+        stepErrors.targetCountries = t(
+          'validation.targetCountriesRequired',
+          'Please enter at least one target country or region.'
+        )
+      }
+    }
+
+    const isValid = Object.keys(stepErrors).length === 0
+
+    setErrors((prev) => {
+      const next = { ...prev }
+      fieldsInStep.forEach((field) => {
+        delete next[field]
+      })
+      return { ...next, ...stepErrors }
+    })
+
+    return isValid
+  }
+
+  const handleNextFromStep = (stepId) => {
+    const isValid = validateStep(stepId)
+    if (isValid) {
+      nextStep()
+    } else {
+      showToast(
+        'error',
+        t('alerts.validationFailed', 'Please fix the highlighted fields.')
+      )
+    }
+  }
+
+  const handleNextFromReview = () => {
+    const requiredSteps = ['personal', 'education', 'goals', 'experience', 'preferences']
+    const allValid = requiredSteps.every((stepId) => validateStep(stepId))
+
+    if (allValid) {
+      nextStep()
+    } else {
+      showToast(
+        'error',
+        t('alerts.validationFailed', 'Please fix the highlighted fields.')
+      )
+    }
+  }
+
   const prevStep = () => {
     if (currentStep > 0) {
       jumpToStep(currentStep - 1)
@@ -586,7 +831,10 @@ function App() {
 
   const submitForm = async () => {
     if (!captchaToken) {
-      alert(t('alerts.verifyCaptcha', 'Please verify the captcha first.'))
+      showToast(
+        'error',
+        t('alerts.verifyCaptcha', 'Please verify the captcha first.')
+      )
       return
     }
 
@@ -619,7 +867,7 @@ function App() {
       // Handle limit reached from backend
       if (raw && raw.success === false && raw.message) {
         setLimitMessage(raw.message)
-        alert(raw.message)
+        showToast('error', raw.message)
         setIsSubmitting(false)
         return
       }
@@ -656,7 +904,10 @@ function App() {
       }, 1500)
     } catch (error) {
       console.error('Submission error:', error)
-      alert(t('alerts.questFailed', 'Something went wrong while generating your guide.'))
+      showToast(
+        'error',
+        t('alerts.questFailed', 'Something went wrong while generating your guide.')
+      )
       // Optionally step back one
       jumpToStep(Math.max(currentStep - 1, 0))
     } finally {
@@ -666,7 +917,8 @@ function App() {
 
   const handleDownloadPdf = async () => {
     if (!aiResults) {
-      alert(
+      showToast(
+        'info',
         t(
           'alerts.noResultsForPdf',
           'Please generate your personalized guide before downloading the report.'
@@ -675,30 +927,151 @@ function App() {
       return
     }
 
+    if (isGeneratingPdf) return
+
+    setIsGeneratingPdf(true)
+
     const element = document.getElementById('results-section')
     if (!element) return
 
     const { default: html2canvas } = await import('html2canvas')
     const { jsPDF } = await import('jspdf')
 
-    const canvas = await html2canvas(element, {
-      scale: 2,
-      useCORS: true,
-      scrollY: -window.scrollY
+    try {
+      const canvas = await html2canvas(element, {
+        scale: 2,
+        useCORS: true,
+        scrollY: -window.scrollY
+      })
+
+      const imgData = canvas.toDataURL('image/png')
+      const pdf = new jsPDF('p', 'mm', 'a4')
+      const imgProps = pdf.getImageProperties(imgData)
+      const pdfWidth = pdf.internal.pageSize.getWidth()
+      const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width
+      const pageHeight = pdf.internal.pageSize.getHeight()
+      let heightLeft = pdfHeight
+      let position = 0
+
+      pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, pdfHeight)
+      heightLeft -= pageHeight
+
+      while (heightLeft > 0) {
+        position = heightLeft - pdfHeight
+        pdf.addPage()
+        pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, pdfHeight)
+        heightLeft -= pageHeight
+      }
+
+      pdf.save(
+        `scholarship-guide-${(formData.name || parsedResults?.userProfile?.name || 'student')
+          .toString()
+          .replace(/\s+/g, '-')
+          .toLowerCase()}.pdf`
+      )
+    } finally {
+      setIsGeneratingPdf(false)
+    }
+  }
+
+  const handleCopyLinksToClipboard = async () => {
+    const lines = []
+
+    universities.forEach((uni) => {
+      const link =
+        uni.websiteUrl || uni.mainUrl || uni.applicationUrl || uni.applyUrl
+      if (link) {
+        lines.push(`University: ${uni.name || ''} - ${link}`)
+      }
     })
 
-    const imgData = canvas.toDataURL('image/png')
-    const pdf = new jsPDF('p', 'mm', 'a4')
-    const imgProps = pdf.getImageProperties(imgData)
-    const pdfWidth = pdf.internal.pageSize.getWidth()
-    const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width
+    scholarships.forEach((scholarship) => {
+      const link =
+        scholarship.applicationUrl ||
+        scholarship.applyUrl ||
+        scholarship.url ||
+        ''
+      if (link) {
+        lines.push(`Scholarship: ${scholarship.name || ''} - ${link}`)
+      }
+    })
 
-    pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight)
-    pdf.save(
-      `scholarship-guide-${(formData.name || parsedResults?.userProfile?.name || 'student')
-        .toString()
-        .replace(/\s+/g, '-')
-        .toLowerCase()}.pdf`
+    if (lines.length === 0) {
+      showToast(
+        'info',
+        t('results.share.noLinks', 'No links available to copy yet.')
+      )
+      return
+    }
+
+    try {
+      if (!navigator.clipboard || !navigator.clipboard.writeText) {
+        throw new Error('Clipboard API not available')
+      }
+      await navigator.clipboard.writeText(lines.join('\n'))
+      showToast(
+        'success',
+        t('results.share.copied', 'Links copied to clipboard.')
+      )
+    } catch (error) {
+      console.error('Copy to clipboard failed:', error)
+      showToast(
+        'error',
+        t('results.share.copyFailed', 'Could not copy links to clipboard.')
+      )
+    }
+  }
+
+  const handleExportCsv = () => {
+    const rows = []
+    rows.push('Type,Name,Provider/University,Country,Link')
+
+    universities.forEach((uni) => {
+      const link =
+        uni.websiteUrl || uni.mainUrl || uni.applicationUrl || uni.applyUrl || ''
+      const provider = [uni.city, uni.country].filter(Boolean).join(', ')
+      const safeName = String(uni.name || '').replace(/"/g, '""')
+      const safeProvider = String(provider || '').replace(/"/g, '""')
+      rows.push(
+        `University,"${safeName}","${safeProvider}","${uni.country || ''}",${link}`
+      )
+    })
+
+    scholarships.forEach((scholarship) => {
+      const link =
+        scholarship.applicationUrl ||
+        scholarship.applyUrl ||
+        scholarship.url ||
+        ''
+      const safeName = String(scholarship.name || '').replace(/"/g, '""')
+      const safeProvider = String(scholarship.provider || '').replace(/"/g, '""')
+      rows.push(
+        `Scholarship,"${safeName}","${safeProvider}","",${link}`
+      )
+    })
+
+    if (rows.length === 1) {
+      showToast(
+        'info',
+        t('results.share.noDataForCsv', 'No data available to export yet.')
+      )
+      return
+    }
+
+    const csvContent = rows.join('\n')
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.setAttribute('download', 'scholarship-results.csv')
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    URL.revokeObjectURL(url)
+
+    showToast(
+      'success',
+      t('results.share.csvExported', 'CSV file downloaded successfully.')
     )
   }
 
@@ -748,6 +1121,7 @@ function App() {
                 onChange={(value) => updateFormData('name', value)}
                 required
                 placeholder={formPlaceholders.name}
+                error={errors.name}
               />
               <GameInput
                 icon={Mail}
@@ -757,6 +1131,7 @@ function App() {
                 onChange={(value) => updateFormData('email', value)}
                 required
                 placeholder={formPlaceholders.email}
+                error={errors.email}
               />
               <GameInput
                 icon={Calendar}
@@ -766,6 +1141,7 @@ function App() {
                 onChange={(value) => updateFormData('age', value)}
                 required
                 placeholder={formPlaceholders.age}
+                error={errors.age}
               />
               <GameInput
                 icon={Globe}
@@ -774,6 +1150,7 @@ function App() {
                 onChange={(value) => updateFormData('nationality', value)}
                 required
                 placeholder={formPlaceholders.nationality}
+                error={errors.nationality}
               />
             </div>
             <StepNavigation
@@ -782,7 +1159,7 @@ function App() {
               onBack={prevStep}
               primaryLabel={stepCopy.button}
               primaryIcon={Star}
-              onPrimary={nextStep}
+              onPrimary={() => handleNextFromStep('personal')}
             />
           </GameCard>
         )
@@ -805,6 +1182,7 @@ function App() {
                 onChange={(value) => updateFormData('currentEducation', value)}
                 required
                 placeholder={formPlaceholders.currentEducation}
+                error={errors.currentEducation}
               />
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <GameInput
@@ -814,6 +1192,7 @@ function App() {
                   onChange={(value) => updateFormData('gpa', value)}
                   required
                   placeholder={formPlaceholders.gpa}
+                  error={errors.gpa}
                 />
                 <GameInput
                   icon={Languages}
@@ -822,6 +1201,7 @@ function App() {
                   onChange={(value) => updateFormData('englishLevel', value)}
                   required
                   placeholder={formPlaceholders.englishLevel}
+                  error={errors.englishLevel}
                 />
               </div>
             </div>
@@ -831,7 +1211,7 @@ function App() {
               onBack={prevStep}
               primaryLabel={stepCopy.button}
               primaryIcon={Star}
-              onPrimary={nextStep}
+              onPrimary={() => handleNextFromStep('education')}
             />
           </GameCard>
         )
@@ -854,6 +1234,7 @@ function App() {
                 onChange={(value) => updateFormData('fieldOfInterest', value)}
                 required
                 placeholder={formPlaceholders.fieldOfInterest}
+                error={errors.fieldOfInterest}
               />
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <GameInput
@@ -865,6 +1246,7 @@ function App() {
                   required
                   options={degreeOptionsList}
                   selectPlaceholder={selectPlaceholderText}
+                  error={errors.targetDegree}
                 />
                 <GameInput
                   icon={BarChart3}
@@ -875,6 +1257,7 @@ function App() {
                   required
                   options={budgetOptionsList}
                   selectPlaceholder={selectPlaceholderText}
+                  error={errors.budget}
                 />
               </div>
             </div>
@@ -884,7 +1267,7 @@ function App() {
               onBack={prevStep}
               primaryLabel={stepCopy.button}
               primaryIcon={Star}
-              onPrimary={nextStep}
+              onPrimary={() => handleNextFromStep('goals')}
             />
           </GameCard>
         )
@@ -907,6 +1290,7 @@ function App() {
                 value={formData.workExperience}
                 onChange={(value) => updateFormData('workExperience', value)}
                 placeholder={formPlaceholders.workExperience}
+                error={errors.workExperience}
               />
               <GameInput
                 icon={Award}
@@ -915,6 +1299,7 @@ function App() {
                 value={formData.achievements}
                 onChange={(value) => updateFormData('achievements', value)}
                 placeholder={formPlaceholders.achievements}
+                error={errors.achievements}
               />
             </div>
             <StepNavigation
@@ -923,7 +1308,7 @@ function App() {
               onBack={prevStep}
               primaryLabel={stepCopy.button}
               primaryIcon={Star}
-              onPrimary={nextStep}
+              onPrimary={() => handleNextFromStep('experience')}
             />
           </GameCard>
         )
@@ -946,6 +1331,7 @@ function App() {
                 onChange={(value) => updateFormData('targetCountries', value)}
                 required
                 placeholder={formPlaceholders.targetCountries}
+                error={errors.targetCountries}
               />
               <GameInput
                 icon={Target}
@@ -962,7 +1348,152 @@ function App() {
               onBack={prevStep}
               primaryLabel={stepCopy.button}
               primaryIcon={Trophy}
-              onPrimary={nextStep}
+              onPrimary={() => handleNextFromStep('preferences')}
+            />
+          </GameCard>
+        )
+
+      case 'review':
+        return (
+          <GameCard className="max-w-3xl mx-auto">
+            <div className="text-center mb-6">
+              <FileText className="w-16 h-16 mx-auto mb-4 text-blue-400" />
+              <h2 className="game-font text-3xl font-bold text-white mb-2">
+                {stepCopy.title ||
+                  t('review.title', 'Review your answers')}
+              </h2>
+              <p className="text-gray-300">
+                {stepCopy.description ||
+                  t(
+                    'review.description',
+                    'Check your information before generating your personalized guide.'
+                  )}
+              </p>
+            </div>
+
+            <div className="space-y-4 text-sm text-gray-200">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <h3 className="font-semibold text-white">
+                    {t('steps.personal.title')}
+                  </h3>
+                  <p>{formData.name}</p>
+                  <p>{formData.email}</p>
+                  <p>
+                    {formLabels.age}: {formData.age}
+                  </p>
+                  <p>
+                    {formLabels.nationality}: {formData.nationality}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  className="text-blue-400 text-xs font-semibold underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 rounded"
+                  onClick={() =>
+                    jumpToStep(steps.findIndex((s) => s.id === 'personal'))
+                  }
+                >
+                  {navigationCopy.edit}
+                </button>
+              </div>
+
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <h3 className="font-semibold text-white">
+                    {t('steps.education.title')}
+                  </h3>
+                  <p>{formData.currentEducation}</p>
+                  <p>
+                    {formLabels.gpa}: {formData.gpa}
+                  </p>
+                  <p>
+                    {formLabels.englishLevel}: {formData.englishLevel}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  className="text-blue-400 text-xs font-semibold underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 rounded"
+                  onClick={() =>
+                    jumpToStep(steps.findIndex((s) => s.id === 'education'))
+                  }
+                >
+                  {navigationCopy.edit}
+                </button>
+              </div>
+
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <h3 className="font-semibold text-white">
+                    {t('steps.goals.title')}
+                  </h3>
+                  <p>{formData.fieldOfInterest}</p>
+                  <p>
+                    {formLabels.targetDegree}: {formData.targetDegree}
+                  </p>
+                  <p>
+                    {formLabels.budget}: {formData.budget}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  className="text-blue-400 text-xs font-semibold underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 rounded"
+                  onClick={() =>
+                    jumpToStep(steps.findIndex((s) => s.id === 'goals'))
+                  }
+                >
+                  {navigationCopy.edit}
+                </button>
+              </div>
+
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <h3 className="font-semibold text-white">
+                    {t('steps.experience.title')}
+                  </h3>
+                  <p>{formData.workExperience}</p>
+                  <p>{formData.achievements}</p>
+                </div>
+                <button
+                  type="button"
+                  className="text-blue-400 text-xs font-semibold underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 rounded"
+                  onClick={() =>
+                    jumpToStep(steps.findIndex((s) => s.id === 'experience'))
+                  }
+                >
+                  {navigationCopy.edit}
+                </button>
+              </div>
+
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <h3 className="font-semibold text-white">
+                    {t('steps.preferences.title')}
+                  </h3>
+                  <p>{formData.targetCountries}</p>
+                  <p>{formData.preferences}</p>
+                </div>
+                <button
+                  type="button"
+                  className="text-blue-400 text-xs font-semibold underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 rounded"
+                  onClick={() =>
+                    jumpToStep(steps.findIndex((s) => s.id === 'preferences'))
+                  }
+                >
+                  {navigationCopy.edit}
+                </button>
+              </div>
+            </div>
+
+            <StepNavigation
+              showBack
+              backLabel={navigationCopy.back}
+              onBack={prevStep}
+              primaryLabel={
+                stepCopy.button ||
+                t('review.button', 'Looks good, continue')
+              }
+              primaryIcon={Trophy}
+              onPrimary={handleNextFromReview}
             />
           </GameCard>
         )
@@ -1058,6 +1589,98 @@ function App() {
           // Always replace the placeholder; if value is missing, this just removes {{value}}
           return safeTemplate.replace('{{value}}', value ?? '')
         }
+
+        const parseMatch = (value) => {
+          if (value == null) return 0
+          if (typeof value === 'number') return value
+          const match = String(value).match(/(\d+(\.\d+)?)/)
+          return match ? parseFloat(match[1]) : 0
+        }
+
+        const parseTuition = (value) => {
+          if (value == null) return Number.MAX_SAFE_INTEGER
+          if (typeof value === 'number') return value
+          const cleaned = String(value).replace(/,/g, '')
+          const match = cleaned.match(/(\d+(\.\d+)?)/)
+          return match ? parseFloat(match[1]) : Number.MAX_SAFE_INTEGER
+        }
+
+        const parseDate = (value) => {
+          if (!value) return Number.MAX_SAFE_INTEGER
+          const date = new Date(value)
+          const time = date.getTime()
+          return Number.isNaN(time) ? Number.MAX_SAFE_INTEGER : time
+        }
+
+        const allUniversityCountries = Array.from(
+          new Set(universities.map((u) => u.country).filter(Boolean))
+        ).sort()
+
+        const allUniversityDegrees = Array.from(
+          new Set(universities.map((u) => u.degreeLevel).filter(Boolean))
+        ).sort()
+
+        const favoriteUniversityItems = universities.filter((uni) =>
+          favorites.universities.includes(getUniversityKey(uni))
+        )
+
+        const favoriteScholarshipItems = scholarships.filter((scholarship) =>
+          favorites.scholarships.includes(getScholarshipKey(scholarship))
+        )
+
+        let filteredUniversities = [...universities]
+
+        if (universityCountryFilter !== 'all') {
+          filteredUniversities = filteredUniversities.filter(
+            (uni) => uni.country === universityCountryFilter
+          )
+        }
+
+        if (universityDegreeFilter !== 'all') {
+          filteredUniversities = filteredUniversities.filter(
+            (uni) => uni.degreeLevel === universityDegreeFilter
+          )
+        }
+
+        if (universityMinMatch > 0) {
+          filteredUniversities = filteredUniversities.filter((uni) => {
+            const matchValue = parseMatch(uni.matchPercentage || uni.match)
+            return matchValue >= universityMinMatch
+          })
+        }
+
+        filteredUniversities.sort((a, b) => {
+          if (universitySort === 'deadline') {
+            return parseDate(a.deadline) - parseDate(b.deadline)
+          }
+          if (universitySort === 'tuition') {
+            return parseTuition(a.tuition) - parseTuition(b.tuition)
+          }
+          return (
+            parseMatch(b.matchPercentage || b.match) -
+            parseMatch(a.matchPercentage || a.match)
+          )
+        })
+
+        let sortedScholarships = [...scholarships]
+
+        sortedScholarships.sort((a, b) => {
+          if (scholarshipSort === 'amount') {
+            return parseTuition(b.amount) - parseTuition(a.amount)
+          }
+          if (scholarshipSort === 'probability') {
+            const score = (value) => {
+              if (!value) return 0
+              const lower = String(value).toLowerCase()
+              if (lower.includes('very high')) return 3
+              if (lower.includes('high')) return 2
+              if (lower.includes('medium')) return 1
+              return 0
+            }
+            return score(b.probability) - score(a.probability)
+          }
+          return parseDate(a.deadline) - parseDate(b.deadline)
+        })
 
         return (
           <div id="results-section" className="max-w-6xl mx-auto space-y-8">
@@ -1545,6 +2168,24 @@ function App() {
         onHide={() => setShowAchievement(false)}
       />
 
+      {toast && (
+        <div className="fixed top-24 right-4 z-50">
+          <div
+            className={`glass-morphism rounded-xl px-4 py-3 border ${
+              toast.type === 'error'
+                ? 'border-red-400 bg-red-500/20'
+                : toast.type === 'success'
+                ? 'border-green-400 bg-green-500/20'
+                : 'border-blue-400 bg-blue-500/20'
+            }`}
+            role={toast.type === 'error' ? 'alert' : 'status'}
+            aria-live={toast.type === 'error' ? 'assertive' : 'polite'}
+          >
+            <p className="text-sm text-white font-medium">{toast.message}</p>
+          </div>
+        </div>
+      )}
+
       <SectionNavigator
         currentStep={currentStep}
         steps={steps}
@@ -1552,7 +2193,7 @@ function App() {
         onJump={jumpToStep}
       />
 
-      <div className="relative z-10 container mx-auto px-4 py-20">
+      <div className="relative z-10 container mx-auto px-4 pt-16 pb-32 sm:pt-20">
         <AnimatePresence mode="wait">{renderStepContent()}</AnimatePresence>
       </div>
     </div>
