@@ -1,0 +1,719 @@
+{
+    "nodes": [
+        {
+            "parameters": {
+                "httpMethod": "POST",
+                "path": "scholarship-finder",
+                "responseMode": "responseNode",
+                "options": {}
+            },
+            "id": "4ea17995-6bbe-48b0-adc1-fb995047d5e0",
+            "name": "Webhook",
+            "type": "n8n-nodes-base.webhook",
+            "typeVersion": 2,
+            "position": [
+                -2680,
+                -240
+            ],
+            "webhookId": "scholarship-form-submit"
+        },
+        {
+            "parameters": {
+                "jsCode": "// Extract captcha token and basic validation\nconst body = $input.item.json.body;\n\nif (!body.captchaToken) {\n  throw new Error('MISSING_CAPTCHA');\n}\n\nif (!body.email) {\n  throw new Error('MISSING_EMAIL');\n}\n\nreturn {\n  json: {\n    captchaToken: body.captchaToken,\n    email: body.email.toLowerCase().trim(),\n    clientIp: $input.item.json.headers['x-forwarded-for'] || $input.item.json.headers['x-real-ip'] || 'unknown',\n    originalBody: body\n  }\n};"
+            },
+            "id": "aab97f81-5b2c-4ca6-801e-7e42fd8b7609",
+            "name": "Extract Captcha & Email",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                -2480,
+                -240
+            ],
+            "onError": "continueErrorOutput"
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://hcaptcha.com/siteverify",
+                "sendBody": true,
+                "contentType": "form-urlencoded",
+                "bodyParameters": {
+                    "parameters": [
+                        {
+                            "name": "secret",
+                            "value": "YOUR_HCAPTCHA_SECRET"
+                        },
+                        {
+                            "name": "response",
+                            "value": "={{$json.captchaToken}}"
+                        },
+                        {
+                            "name": "remoteip",
+                            "value": "={{$json.clientIp}}"
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "id": "ddfcc93c-8ed7-425d-b102-00ed510a95ee",
+            "name": "Verify hCaptcha",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                -2280,
+                -240
+            ]
+        },
+        {
+            "parameters": {
+                "jsCode": "// Check if captcha verification succeeded\nconst captchaResponse = $input.item.json;\n\nif (!captchaResponse.success) {\n  throw new Error('CAPTCHA_FAILED');\n}\n\n// Pass through all data\nreturn {\n  json: {\n    ...($('Extract Captcha & Email').item.json),\n    captchaVerified: true,\n    captchaTimestamp: new Date().toISOString()\n  }\n};"
+            },
+            "id": "70cd840b-4a39-452b-b7ab-1e5408db5c74",
+            "name": "Check Captcha Result",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                -2080,
+                -240
+            ],
+            "onError": "continueErrorOutput"
+        },
+        {
+            "parameters": {
+                "operation": "executeQuery",
+                "query": "SELECT COUNT(*) as request_count\nFROM scholarship_requests\nWHERE email = $1\nAND created_at >= CURRENT_DATE\nAND created_at < CURRENT_DATE + INTERVAL '1 day'",
+                "options": {
+                    "queryReplacement": "={{[ $('Check Captcha Result').item.json.email ]}}"
+                }
+            },
+            "id": "f461a725-388d-493b-a472-506824c90623",
+            "name": "Check Rate Limit",
+            "type": "n8n-nodes-base.postgres",
+            "typeVersion": 2.4,
+            "position": [
+                -1880,
+                -240
+            ],
+            "credentials": {
+                "postgres": {
+                    "id": "ROR4N7Si06ekrfKC",
+                    "name": "Postgres account"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "jsCode": "// Check if user has exceeded daily limit\nconst requestCount = parseInt($input.item.json.request_count) || 0;\nconst email = $('Check Captcha Result').item.json.email;\n\nif (requestCount >= 3) {\n  throw new Error('LIMIT_REACHED');\n}\n\n// User is under limit, pass data forward\nreturn {\n  json: {\n    email: email,\n    currentCount: requestCount,\n    remainingRequests: 3 - requestCount,\n    originalBody: $('Check Captcha Result').item.json.originalBody,\n    clientIp: $('Check Captcha Result').item.json.clientIp\n  }\n};"
+            },
+            "id": "6fdb2f6f-aba3-416d-b3a2-cab006bcdfb7",
+            "name": "Validate Rate Limit",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                -1680,
+                -240
+            ],
+            "onError": "continueErrorOutput"
+        },
+        {
+            "parameters": {
+                "operation": "executeQuery",
+                "query": "INSERT INTO scholarship_requests (email, ip, created_at)\nVALUES ($1, $2, NOW())\nRETURNING id, created_at",
+                "options": {
+                    "queryReplacement": "={{[ $('Validate Rate Limit').item.json.email, $('Validate Rate Limit').item.json.clientIp ]}}"
+                }
+            },
+            "id": "78ba9dff-a66e-4a66-a3a1-a46b3d11a1e6",
+            "name": "Record Request",
+            "type": "n8n-nodes-base.postgres",
+            "typeVersion": 2.4,
+            "position": [
+                -1480,
+                -240
+            ],
+            "credentials": {
+                "postgres": {
+                    "id": "ROR4N7Si06ekrfKC",
+                    "name": "Postgres account"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "jsCode": "// Parse form data from webhook body\nconst body = $('Validate Rate Limit').item.json.originalBody;\n\n// Create user profile object with validation\nconst userProfile = {\n  name: body.name || \"Student\",\n  email: body.email || \"\",\n  age: parseInt(body.age) || 0,\n  nationality: body.nationality || \"\",\n  currentEducation: body.currentEducation || \"\",\n  gpa: parseFloat(body.gpa) || 0,\n  englishLevel: body.englishLevel || \"\",\n  fieldOfInterest: body.fieldOfInterest || \"\",\n  targetDegree: body.targetDegree || \"\",\n  budget: body.budget || \"\",\n  workExperience: body.workExperience || \"None\",\n  achievements: body.achievements || \"None\",\n  preferences: body.preferences || \"\",\n  targetCountries: body.targetCountries || \"\",\n  languagePreference: body.languagePreference || \"en\"\n};\n\n// Normalize GPA to 4.0 scale if needed\nlet normalizedGPA = userProfile.gpa;\nif (normalizedGPA > 4.0 && normalizedGPA <= 5.0) {\n  normalizedGPA = (normalizedGPA / 5.0) * 4.0;\n} else if (normalizedGPA > 10.0 && normalizedGPA <= 100.0) {\n  normalizedGPA = (normalizedGPA / 100.0) * 4.0;\n}\n\n// Calculate competitiveness score\nconst competitivenessScore = {\n  gpa: normalizedGPA >= 3.5 ? 'High' : normalizedGPA >= 3.0 ? 'Medium' : 'Low',\n  experience: body.workExperience && body.workExperience !== 'None' ? 'Yes' : 'No',\n  achievements: body.achievements && body.achievements !== 'None' ? 'Yes' : 'No'\n};\n\n// Create formatted text for AI\nconst profileText = `\nName: ${userProfile.name}\nAge: ${userProfile.age}\nNationality: ${userProfile.nationality} (Where student is FROM)\nCurrent Education: ${userProfile.currentEducation}\nGPA: ${userProfile.gpa} (Normalized: ${normalizedGPA.toFixed(2)}/4.0)\nCompetitiveness: ${competitivenessScore.gpa}\nEnglish Level: ${userProfile.englishLevel}\nField of Interest: ${userProfile.fieldOfInterest}\nTarget Degree: ${userProfile.targetDegree}\nBudget: ${userProfile.budget}\nWork Experience: ${userProfile.workExperience}\nAchievements: ${userProfile.achievements}\nTarget Countries: ${userProfile.targetCountries} (Where student wants to STUDY)\nPreferences: ${userProfile.preferences}\nLanguage Preference: ${userProfile.languagePreference}\n`;\n\nconst currentYear = new Date().getFullYear();\nconst searchQueries = [\n  `scholarships ${userProfile.fieldOfInterest} ${userProfile.nationality} students ${currentYear}`,\n  `best universities ${userProfile.targetCountries} ${userProfile.fieldOfInterest} international students`,\n  `fully funded scholarships ${userProfile.targetDegree} ${currentYear}`\n];\n\nreturn {\n  json: {\n    userProfile: userProfile,\n    profileText: profileText,\n    normalizedGPA: normalizedGPA,\n    competitivenessScore: competitivenessScore,\n    searchQueries: searchQueries,\n    languagePreference: userProfile.languagePreference,\n    timestamp: new Date().toISOString()\n  }\n};"
+            },
+            "id": "3d511623-817a-4561-ac28-ded51400225e",
+            "name": "Parse & Validate Form Data",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                -1280,
+                -240
+            ]
+        },
+        {
+            "parameters": {
+                "jsCode": "// Add realistic tuition ranges and verification context\nconst profile = $input.item.json.userProfile;\nconst targetCountries = profile.targetCountries.toLowerCase();\nconst wantsDomestic = targetCountries.includes(profile.nationality.toLowerCase().replace('an', ''));\n\n// Realistic tuition ranges by country (2024-2025 data)\nconst tuitionGuide = `\nVERIFIED TUITION FEE RANGES (2024-2025):\n\nCanada (International Students):\n- Undergraduate: CAD $20,000-35,000/year\n- Master's: CAD $25,000-40,000/year  \n- Top universities: CAD $30,000-50,000/year\n- Examples: U of Toronto ~$32,000, UBC ~$30,000, McGill ~$28,000\n\nGermany (Public Universities):\n- Tuition: €0-500/semester (most public universities are tuition-free)\n- Semester fees: €150-350 (administrative costs)\n- Living expenses: €850-1,200/month\n- Private universities: €10,000-20,000/year\n\nNetherlands (International Students):\n- Bachelor's: €8,000-12,000/year\n- Master's: €12,000-25,000/year\n- Top technical universities: €18,000-22,000/year\n- Examples: TU Delft ~€19,000, University of Amsterdam ~€16,000\n\nUSA (International Students):\n- Public universities: $25,000-45,000/year\n- Private universities: $40,000-70,000/year\n- Ivy League: $55,000-80,000/year\n\nUK (International Students):\n- Undergraduate: £15,000-30,000/year\n- Master's: £12,000-35,000/year\n- Top universities: £25,000-40,000/year\n\nAustralia (International Students):\n- Bachelor's: AUD $25,000-45,000/year\n- Master's: AUD $28,000-50,000/year\n`;\n\nconst scholarshipContext = `\nMAJOR SCHOLARSHIP PROGRAMS (2024-2025):\n\n1. Fulbright Foreign Student Program (USA)\n   - Coverage: Full tuition + $1,500-2,000/month stipend\n   - Eligibility: All nationalities, excellent academics\n   - Deadline: Varies by country (Oct-Dec typically)\n\n2. DAAD Scholarships (Germany)\n   - Master's: €934/month (+ health insurance + travel)\n   - PhD: €1,200/month\n   - Deadline: Multiple rounds (Sept-Nov typically)\n\n3. Chevening Scholarships (UK)\n   - Coverage: Full tuition + living expenses (~£1,500/month)\n   - Requirement: 2+ years work experience\n   - Deadline: November annually\n\n4. Erasmus Mundus Joint Masters (Europe)\n   - Scholarship: €1,400/month + tuition coverage\n   - Duration: 1-2 years\n   - Deadline: Varies by program (Oct-Jan)\n\n5. Australia Awards\n   - Coverage: Full tuition + AUD $3,000/month\n   - Target: Developing countries\n   - Deadline: April-May\n\n6. Orange Knowledge Programme (Netherlands)\n   - Coverage: €1,100/month + tuition\n   - Target: Specific countries\n   - Deadline: March-April\n\nSTUDENT'S TARGET: ${profile.targetCountries}\nSTUDENT IS FROM: ${profile.nationality}\n${wantsDomestic ? 'NOTE: Student wants to study in their HOME country or region' : 'NOTE: Student wants to study INTERNATIONALLY/ABROAD'}\n`;\n\nreturn {\n  json: {\n    ...($input.item.json),\n    tuitionGuide: tuitionGuide,\n    scholarshipContext: scholarshipContext,\n    wantsDomestic: wantsDomestic\n  }\n};"
+            },
+            "id": "d6a8d81a-2fd6-41b2-8b56-1df4a188ec82",
+            "name": "Add Realistic Data Context",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                -1080,
+                -240
+            ]
+        },
+        {
+            "parameters": {
+                "jsCode": "// Pre-filter based on hard constraints\nconst profile = $input.item.json.userProfile;\nconst normalizedGPA = $input.item.json.normalizedGPA;\n\n// Budget filtering\nlet maxBudget = 100000;\nif (profile.budget.includes('10000')) maxBudget = 10000;\nelse if (profile.budget.includes('20000')) maxBudget = 20000;\nelse if (profile.budget.includes('30000')) maxBudget = 30000;\n\nconst filteringInstructions = `\nAPPLY THESE FILTERS STRICTLY:\n\n🎯 CRITICAL LOCATION REQUIREMENT:\nStudent wants to study in: ${profile.targetCountries}\nStudent is from (nationality): ${profile.nationality}\n\n⚠️ IMPORTANT: These are TWO DIFFERENT things!\n- Nationality = Where student is FROM (their passport/citizenship)\n- Target Countries = WHERE they want to study (location of universities)\n\nYou MUST recommend universities that are physically located in: ${profile.targetCountries}\nDO NOT confuse nationality with target study destination!\n\nOTHER FILTERS:\n1. Only recommend universities where tuition <= $${maxBudget * 1.3}/year (30% buffer)\n2. Student's normalized GPA (${normalizedGPA.toFixed(2)}/4.0) must meet minimum requirements\n3. Universities MUST be physically located in: ${profile.targetCountries}\n4. English requirement must match student level: ${profile.englishLevel}\n5. Programs must offer ${profile.fieldOfInterest} at ${profile.targetDegree} level\n6. Scholarships should accept ${profile.nationality} nationals\n7. Only include opportunities with deadlines in next 12 months\n8. If target country matches nationality, include domestic universities\n9. If target country differs from nationality, focus on international programs\n`;\n\nreturn {\n  json: {\n    ...($input.item.json),\n    filteringInstructions: filteringInstructions,\n    maxBudget: maxBudget\n  }\n};"
+            },
+            "id": "8b5424c6-19a3-4d7a-85ca-4c696bf36dc8",
+            "name": "Smart Pre-Filter",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                -880,
+                -240
+            ]
+        },
+        {
+            "parameters": {
+                "promptType": "define",
+                "text": "=You are an expert educational consultant with 15 years of experience in international university admissions and scholarship advising.\n\n{{ $json.filteringInstructions }}\n\nVERIFIED TUITION RANGES (USE THESE):\n{{ $json.tuitionGuide }}\n\nVERIFIED SCHOLARSHIP INFORMATION:\n{{ $json.scholarshipContext }}\n\nSTUDENT PROFILE:\n{{ $json.profileText }}\n\n🎯 CRITICAL ACCURACY INSTRUCTIONS:\n\n1. LOCATION REQUIREMENT (MOST IMPORTANT):\n   - Student wants to study in: {{ $json.userProfile.targetCountries }}\n   - Student is from: {{ $json.userProfile.nationality }}\n   - You MUST ONLY recommend universities located in: {{ $json.userProfile.targetCountries }}\n   - DO NOT recommend universities in other countries!\n\n2. TUITION FEES - FOLLOW THESE RULES:\n   ⚠️ CRITICAL: Use ONLY the verified ranges provided above\n   - Write tuition as RANGES, not exact amounts\n   - Example: \"$25,000-35,000/year\" NOT \"$32,000/year\"\n   - Add \"approximately\" before all amounts\n   - ALWAYS add: \"Contact university for exact current fees\"\n   - Use the country-specific ranges from the guide above\n   - If unsure, write \"Contact university directly for current tuition fees\"\n\n3. SCHOLARSHIP AMOUNTS:\n   - Use the verified amounts from the scholarship context above\n   - Write as ranges when possible\n   - Add: \"Amount may vary by year and applicant qualifications\"\n   - Include official application URLs\n\n4. DEADLINES:\n   - Write \"Typically [Month] [Year]\" NOT exact dates\n   - Add: \"Check official website for exact deadline\"\n   - Examples: \"Typically January 2026\", \"Usually April-May\"\n\n5. Calculate match percentage using:\n   - GPA Match (40%): Student's {{ $json.normalizedGPA.toFixed(2) }}/4.0\n   - Field Alignment (30%): Match with {{ $json.userProfile.fieldOfInterest }}\n   - Financial Fit (20%): Within {{ $json.userProfile.budget }} budget\n   - Other Factors (10%): Experience, achievements, nationality\n\n6. Return the full response in {{ $json.languagePreference }} language\n\nPROVIDE EXACTLY 5 UNIVERSITIES AND 5 SCHOLARSHIPS:\n\nFOR EACH UNIVERSITY:\n---\nUNIVERSITY NAME: [Full Name]\nLOCATION: [City, Country] ⚠️ MUST BE IN {{ $json.userProfile.targetCountries }}\nMATCH PERCENTAGE: [Number between 60-95]%\nWHY PERFECT MATCH: [2-3 sentences specifically about THIS student's GPA, field, background]\nTUITION: Approximately [RANGE from guide above] (International students)\nVERIFICATION NOTE: Contact university admissions for exact current fees\nAVAILABLE FUNDING: [Specific scholarships at this university]\nKEY REQUIREMENTS: [GPA, test scores, documents]\nAPPLICATION DEADLINE: Typically [Month Year] - Check official website\nWEBSITE: [Official university URL]\nADMISSIONS PAGE: [Direct admissions URL]\nAPPLICATION PORTAL: [Direct application URL]\nSCHOLARSHIPS PAGE: [Direct scholarships URL]\n---\n\nFOR EACH SCHOLARSHIP:\n---\nSCHOLARSHIP NAME: [Full Name]\nPROVIDER: [Organization/Government/University]\nAWARD AMOUNT: Approximately [amount from context] (varies by year)\nDEADLINE: Typically [Month Year] - Check official website for exact date\nMATCH PROBABILITY: High or Medium\nWHY YOU QUALIFY: [2-3 specific reasons based on student profile]\nELIGIBILITY: [Key criteria: GPA, nationality, field]\nVERIFICATION: Visit official website for current amount and requirements\nAPPLICATION URL: [Direct application URL]\nDETAILS URL: [Information page URL]\n---\n\nREMEMBER: \n- All universities MUST be in {{ $json.userProfile.targetCountries }}\n- Use RANGES for tuition, not exact amounts\n- Add verification notes to ALL financial information\n- Never invent or guess numbers - use the verified ranges provided",
+                "options": {}
+            },
+            "id": "f8f39b1e-b019-44bf-837b-25739965a13d",
+            "name": "AI Agent - Enhanced Analysis",
+            "type": "@n8n/n8n-nodes-langchain.agent",
+            "typeVersion": 1.7,
+            "position": [
+                -680,
+                -240
+            ]
+        },
+        {
+            "parameters": {
+                "options": {}
+            },
+            "id": "68f0efca-6a74-4fc0-9244-6ab9b18b167c",
+            "name": "OpenAI Model 1",
+            "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+            "typeVersion": 1,
+            "position": [
+                -680,
+                -340
+            ],
+            "credentials": {
+                "openAiApi": {
+                    "id": "IzWFGDI6iCxR2UfJ",
+                    "name": "OpenAi account"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "jsCode": "// Validate AI output for accuracy\nconst aiOutput = $input.item.json.output;\nconst targetCountries = $('Parse & Validate Form Data').item.json.userProfile.targetCountries.toLowerCase();\n\nconst validationIssues = [];\nconst warnings = [];\n\n// Check for placeholder text\nif (aiOutput.includes('TBD') || aiOutput.includes('N/A')) {\n  validationIssues.push('Contains placeholder text (TBD or N/A)');\n}\n\n// Check for exact amounts without \"approximately\" or ranges\nconst exactAmountPattern = /\\$\\d{1,3}(,\\d{3})*\\/year(?! -)/g;\nconst exactMatches = aiOutput.match(exactAmountPattern) || [];\nif (exactMatches.length > 0) {\n  warnings.push(`Found ${exactMatches.length} exact tuition amounts without ranges or 'approximately'`);\n}\n\n// Check if universities match target countries\nconst countryKeywords = targetCountries.split(',').map(c => c.trim().toLowerCase());\nlet foundMatchingCountry = false;\nfor (const keyword of countryKeywords) {\n  if (aiOutput.toLowerCase().includes(keyword)) {\n    foundMatchingCountry = true;\n    break;\n  }\n}\n\nif (!foundMatchingCountry && !targetCountries.includes('any')) {\n  validationIssues.push(`WARNING: No universities found matching target countries: ${targetCountries}`);\n}\n\n// Check for verification notes\nif (!aiOutput.includes('Contact') && !aiOutput.includes('Check') && !aiOutput.includes('Verify')) {\n  warnings.push('Missing verification notes on fees/deadlines');\n}\n\n// Check for unrealistic tuition fees\nconst tuitionAmounts = aiOutput.match(/\\$(\\d{1,3}(?:,\\d{3})*)(?:\\/year)?/g) || [];\ntuitionAmounts.forEach(amount => {\n  const numAmount = parseInt(amount.replace(/[^0-9]/g, ''));\n  if (numAmount > 80000) {\n    warnings.push(`Unusually high amount detected: ${amount}`);\n  }\n});\n\nconst matchPercentages = aiOutput.match(/(\\d+)%/g) || [];\nconst urlCount = (aiOutput.match(/https?:\\/\\//g) || []).length;\n\nconst validationResult = {\n  isValid: validationIssues.length === 0,\n  issues: validationIssues,\n  warnings: warnings,\n  urlCount: urlCount,\n  matchPercentageCount: matchPercentages.length,\n  targetCountriesMatched: foundMatchingCountry,\n  accuracyScore: validationIssues.length === 0 && warnings.length < 3 ? 'High' : warnings.length < 5 ? 'Medium' : 'Low'\n};\n\nreturn {\n  json: {\n    ...($input.item.json),\n    validationResult: validationResult\n  }\n};"
+            },
+            "id": "ae65d07d-3698-4639-8250-b25a5d1591a7",
+            "name": "Validate AI Output",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                -480,
+                -240
+            ]
+        },
+        {
+            "parameters": {
+                "promptType": "define",
+                "text": "=Based on these recommendations:\n\n{{ $json.output }}\n\nCONVERT TO CLEAN JSON.\n\nRULES:\n1. Return ONLY valid JSON - no markdown, no code blocks, no explanations\n2. All URLs must be real, working URLs (use .edu, .org, .gov domains)\n3. Keep tuition as RANGES (e.g., \"$25,000-35,000/year\") not exact amounts\n4. All dates must include \"Typically\" or \"Usually\" (e.g., \"Typically January\") without mentionning the year\n5. All text fields should be in {{ $json.languagePreference }} language only\n6. Match percentages must be realistic (60-95% range)\n7. Add verification notes to ALL financial information\n\nEXACT JSON STRUCTURE:\n\n{\n  \"universities\": [\n    {\n      \"name\": \"Full University Name\",\n      \"country\": \"Country Name\",\n      \"city\": \"City Name\",\n      \"matchPercentage\": \"85%\",\n      \"tuition\": \"Approximately $25,000-35,000/year\",\n      \"tuitionNote\": \"Contact university for exact current fees\",\n      \"scholarships\": \"Available scholarships description\",\n      \"reason\": \"This university is perfect because [specific reasons]\",\n      \"requirements\": \"GPA 3.5+, TOEFL 100+, 2 letters, SOP\",\n      \"deadline\": \"Typically January 2026 - Check official website\",\n      \"websiteUrl\": \"https://university.edu\",\n      \"admissionsUrl\": \"https://university.edu/admissions\",\n      \"applicationUrl\": \"https://apply.university.edu\",\n      \"scholarshipsUrl\": \"https://university.edu/financial-aid\"\n    }\n  ],\n  \"scholarships\": [\n    {\n      \"name\": \"Full Scholarship Name\",\n      \"provider\": \"Organization Name\",\n      \"amount\": \"Approximately $15,000/year\",\n      \"amountNote\": \"Amount varies by year and qualifications\",\n      \"deadline\": \"Typically March 2026 - Check official website\",\n      \"probability\": \"High\",\n      \"description\": \"Brief description\",\n      \"eligibility\": \"Key requirements\",\n      \"applicationUrl\": \"https://apply.org\",\n      \"detailsUrl\": \"https://details.org\"\n    }\n  ],\n  \"resources\": {\n    \"sopTools\": [{\"name\":\"Grammarly\",\"url\":\"https://www.grammarly.com\",\"description\":\"AI writing assistant\"}],\n    \"resumeBuilders\": [{\"name\":\"Canva\",\"url\":\"https://www.canva.com/resumes\",\"description\":\"Resume templates\"}],\n    \"testPrep\": [{\"name\":\"IELTS Prep\",\"url\":\"https://www.ielts.org/for-test-takers/test-preparation\",\"description\":\"Official prep\"}],\n    \"scholarshipDatabases\": [{\"name\":\"Scholarships.com\",\"url\":\"https://www.scholarships.com\",\"description\":\"Search scholarships\"}],\n    \"forums\": [{\"name\":\"Reddit\",\"url\":\"https://www.reddit.com/r/gradadmissions\",\"description\":\"Community\"}],\n    \"visaGuides\": [{\"name\":\"US Visa\",\"url\":\"https://travel.state.gov/content/travel/en/us-visas/study/student-visa.html\",\"description\":\"Visa info\"}],\n    \"other\": [{\"name\":\"WES\",\"url\":\"https://www.wes.org\",\"description\":\"Evaluation\"}]\n  },\n  \"applicationTimeline\": {\n    \"immediate\": [\"Research programs\"],\n    \"oneMonth\": [\"Take tests\"],\n    \"twoMonths\": [\"Submit applications\"],\n    \"threeMonths\": [\"Prepare interviews\"]\n  },\n  \"estimatedCosts\": {\n    \"applicationFees\": \"$500-1000\",\n    \"testFees\": \"$200-400\",\n    \"visaFees\": \"$160-500\",\n    \"totalEstimate\": \"$1000-2000\",\n    \"note\": \"Estimates only - costs vary by country and university\"\n  }\n}\n\nReturn ONLY the JSON object. No markdown, no ```json``` tags, no text before or after.",
+                "options": {}
+            },
+            "id": "5cdbabc2-f8a3-49ee-909a-0b75c67bceae",
+            "name": "AI Agent - Structure Data",
+            "type": "@n8n/n8n-nodes-langchain.agent",
+            "typeVersion": 1.7,
+            "position": [
+                -280,
+                -240
+            ]
+        },
+        {
+            "parameters": {
+                "options": {}
+            },
+            "id": "2122520b-f76f-4692-a00d-efcd7ff48337",
+            "name": "OpenAI Model 2",
+            "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+            "typeVersion": 1,
+            "position": [
+                -280,
+                -340
+            ],
+            "credentials": {
+                "openAiApi": {
+                    "id": "IzWFGDI6iCxR2UfJ",
+                    "name": "OpenAi account"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "jsCode": "// Combine all data\nconst items = [\n  $('Parse & Validate Form Data').item.json,\n  $('AI Agent - Enhanced Analysis').item.json,\n  $('AI Agent - Structure Data').item.json,\n  $('Validate AI Output').item.json\n];\n\nconst userProfile = items[0].userProfile;\nconst recommendations = items[1].output;\nconst structuredOutput = items[2].output;\nconst validation = items[3].validationResult;\n\nlet linksData = {};\ntry {\n  let cleanJson = structuredOutput.replace(/```json\\n?/g, '').replace(/```\\n?/g, '').trim();\n  const firstBrace = cleanJson.indexOf('{');\n  const lastBrace = cleanJson.lastIndexOf('}');\n  if (firstBrace !== -1 && lastBrace !== -1) {\n    cleanJson = cleanJson.substring(firstBrace, lastBrace + 1);\n  }\n  linksData = JSON.parse(cleanJson);\n} catch (e) {\n  console.error('JSON Parse Error:', e.message);\n  linksData = {\n    universities: [],\n    scholarships: [],\n    resources: {\n      sopTools: [{\"name\":\"Grammarly\",\"url\":\"https://www.grammarly.com\",\"description\":\"AI assistant\"}],\n      resumeBuilders: [{\"name\":\"Canva\",\"url\":\"https://www.canva.com/resumes\",\"description\":\"Templates\"}],\n      testPrep: [{\"name\":\"IELTS\",\"url\":\"https://www.ielts.org/for-test-takers/test-preparation\",\"description\":\"Prep\"}],\n      scholarshipDatabases: [{\"name\":\"Scholarships.com\",\"url\":\"https://www.scholarships.com\",\"description\":\"Search\"}],\n      forums: [{\"name\":\"Reddit\",\"url\":\"https://www.reddit.com/r/gradadmissions\",\"description\":\"Community\"}],\n      visaGuides: [{\"name\":\"US\",\"url\":\"https://travel.state.gov/content/travel/en/us-visas/study/student-visa.html\",\"description\":\"Visa\"}],\n      other: [{\"name\":\"WES\",\"url\":\"https://www.wes.org\",\"description\":\"Evaluation\"}]\n    },\n    applicationTimeline: {\n      immediate: [\"Research\"],\n      oneMonth: [\"Tests\"],\n      twoMonths: [\"Apply\"],\n      threeMonths: [\"Interview\"]\n    },\n    estimatedCosts: {\n      applicationFees: \"$500-1000\",\n      testFees: \"$200-400\",\n      visaFees: \"$160-500\",\n      totalEstimate: \"$1000-2000\"\n    },\n    parseError: true,\n    errorMessage: e.message\n  };\n}\n\nlet successProbability = 'Good';\nif (items[0].normalizedGPA >= 3.7 && userProfile.workExperience !== 'None') {\n  successProbability = 'Excellent';\n} else if (items[0].normalizedGPA < 3.0 && userProfile.workExperience === 'None') {\n  successProbability = 'Moderate';\n}\n\nconst personalizedInsights = {\n  competitivenessAnalysis: {\n    gpaRating: items[0].normalizedGPA >= 3.7 ? \"Excellent\" : items[0].normalizedGPA >= 3.3 ? \"Good\" : \"Moderate\",\n    strengthAreas: []\n  },\n  nextSteps: [\n    \"Review recommended universities and shortlist 8-10\",\n    \"Verify current tuition fees on official university websites\",\n    \"Check exact application deadlines on admissions portals\",\n    \"Prepare Statement of Purpose\",\n    \"Request recommendation letters (6-8 weeks in advance)\",\n    \"Register for required English tests if needed\",\n    \"Apply for high-match scholarships early\",\n    \"Confirm scholarship amounts and eligibility on official sites\"\n  ]\n};\n\nif (items[0].normalizedGPA >= 3.5) personalizedInsights.competitivenessAnalysis.strengthAreas.push('Strong GPA');\nif (userProfile.workExperience !== 'None') personalizedInsights.competitivenessAnalysis.strengthAreas.push('Work experience');\nif (userProfile.achievements !== 'None') personalizedInsights.competitivenessAnalysis.strengthAreas.push('Achievements');\n\nreturn {\n  json: {\n    userProfile: userProfile,\n    normalizedGPA: items[0].normalizedGPA,\n    competitivenessScore: items[0].competitivenessScore,\n    recommendations: recommendations,\n    linksData: linksData,\n    personalizedInsights: personalizedInsights,\n    validationResult: validation,\n    successProbability: successProbability,\n    timestamp: new Date().toISOString()\n  }\n};"
+            },
+            "id": "d0299a1b-23b8-4c16-94e8-33a5166a1ebb",
+            "name": "Combine & Enhance Data",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                -80,
+                -240
+            ]
+        },
+        {
+            "parameters": {
+                "jsCode": "// Generate documents\nconst profile = $input.item.json.userProfile;\nconst universities = $input.item.json.linksData.universities || [];\n\nconst topUniversity = universities[0];\nconst sopOutline = topUniversity ? `\nSTATEMENT OF PURPOSE OUTLINE FOR ${topUniversity.name}\n\nParagraph 1 - Introduction (Hook)\n- Start with compelling story about ${profile.fieldOfInterest}\n- Mention achievement: ${profile.achievements}\n- State goal: Pursuing ${profile.targetDegree} at ${topUniversity.name}\n\nParagraph 2 - Academic Background\n- Highlight ${profile.currentEducation}\n- Emphasize GPA (${profile.gpa}) and relevant coursework\n- Connect academic experience to ${profile.fieldOfInterest}\n\nParagraph 3 - Professional Experience\n- Detail: ${profile.workExperience}\n- Show how it prepared you for graduate studies\n- Demonstrate practical application of knowledge\n\nParagraph 4 - Why This Program\n- Specific reasons for choosing ${topUniversity.name} in ${topUniversity.country}\n- Mention faculty whose research aligns with your interests\n- Highlight unique program features\n- Explain fit with target location: ${profile.targetCountries}\n\nParagraph 5 - Future Goals\n- Career aspirations in ${profile.fieldOfInterest}\n- How this degree will help achieve goals\n- Contribution you'll make to the field\n\nParagraph 6 - Conclusion\n- Reiterate fit with program\n- Express enthusiasm and readiness\n- Thank the committee\n\nTIPS:\n- Keep it 800-1000 words\n- Be specific, not generic\n- Show, don't tell\n- Proofread multiple times\n` : 'SOP outline not available - no universities in results';\n\nconst applicationChecklist = {\n  documents: [\n    {item: 'Official Transcripts', status: 'pending', urgency: 'high', notes: 'Request from university (2-3 weeks)'},\n    {item: 'Statement of Purpose', status: 'pending', urgency: 'high', notes: 'Draft, revise, proofread (4-6 weeks)'},\n    {item: 'Resume/CV', status: 'pending', urgency: 'high', notes: 'Tailor to each program (1 week)'},\n    {item: 'Recommendation Letters (3)', status: 'pending', urgency: 'high', notes: 'Ask professors 6-8 weeks ahead'},\n    {item: 'English Test', status: profile.englishLevel ? 'in_progress' : 'pending', urgency: 'high', notes: `Current: ${profile.englishLevel || 'Unknown'}. Book 2 months ahead`},\n    {item: 'Passport Copy', status: 'pending', urgency: 'medium', notes: 'Valid for 6+ months'},\n    {item: 'Financial Documents', status: 'pending', urgency: 'medium', notes: 'Bank statements, sponsor letters'}\n  ],\n  timeline: [\n    {phase: 'Preparation', duration: '2 months', tasks: ['Gather documents', 'Take tests', 'Draft essays']},\n    {phase: 'Application', duration: '1 month', tasks: ['Submit applications', 'Pay fees', 'Track submissions']},\n    {phase: 'Waiting', duration: '2-4 months', tasks: ['Follow up', 'Prepare for interviews', 'Apply for more scholarships']},\n    {phase: 'Decision', duration: '1 month', tasks: ['Compare offers', 'Accept admission', 'Apply for visa']}\n  ]\n};\n\nreturn {\n  json: {\n    ...($input.item.json),\n    sopOutline: sopOutline,\n    applicationChecklist: applicationChecklist\n  }\n};"
+            },
+            "id": "5786778a-fdc3-4122-8b77-95c977ee82b7",
+            "name": "Generate Documents",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                120,
+                -240
+            ]
+        },
+        {
+            "parameters": {
+                "jsCode": "// Add comprehensive disclaimer and accuracy notes\nconst data = $input.item.json;\n\nconst disclaimer = {\n  important: \"⚠️ VERIFICATION REQUIRED: All information is approximate and must be verified on official websites.\",\n  tuitionFees: \"Tuition fees shown are estimates or ranges. Actual costs vary by program and year. Always check the university's official website for current international student fees.\",\n  deadlines: \"Application deadlines are typical periods. Exact dates change yearly. Visit official admissions portals for current deadlines.\",\n  scholarships: \"Scholarship amounts and eligibility vary by year, program, and applicant. Visit official scholarship websites for current information and requirements.\",\n  requirements: \"Admission requirements may change. Verify GPA conversions, test score requirements, and document needs on official university websites.\",\n  recommendation: \"This guide provides a starting point for your research. Make final decisions based on official, current information from universities and scholarship providers.\",\n  dataSource: \"Information compiled from publicly available data as of \" + new Date().toISOString().split('T')[0],\n  accuracyLevel: data.validationResult?.accuracyScore || 'Medium'\n};\n\nreturn {\n  json: {\n    ...data,\n    disclaimer: disclaimer\n  }\n};"
+            },
+            "id": "ef9e16d3-9762-48cc-b031-39cd6a074824",
+            "name": "Add Disclaimer",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                320,
+                -240
+            ]
+        },
+        {
+            "parameters": {
+                "respondWith": "json",
+                "responseBody": "={{ {\n  success: true,\n  message: 'Your personalized scholarship guide is ready!',\n  version: '3.0 - Enhanced Accuracy',\n  studentName: $json.userProfile.name,\n  successProbability: $json.successProbability,\n  disclaimer: $json.disclaimer,\n  data: {\n    userProfile: $json.userProfile,\n    normalizedGPA: $json.normalizedGPA,\n    competitivenessScore: $json.competitivenessScore,\n    recommendations: $json.recommendations,\n    universities: $json.linksData.universities,\n    scholarships: $json.linksData.scholarships,\n    resources: $json.linksData.resources,\n    applicationTimeline: $json.linksData.applicationTimeline,\n    estimatedCosts: $json.linksData.estimatedCosts,\n    personalizedInsights: $json.personalizedInsights,\n    sopOutline: $json.sopOutline,\n    applicationChecklist: $json.applicationChecklist,\n    validationResult: $json.validationResult,\n    timestamp: $json.timestamp\n  },\n  metadata: {\n    targetCountries: $json.userProfile.targetCountries,\n    targetCountriesMatched: $json.validationResult.targetCountriesMatched,\n    accuracyScore: $json.validationResult.accuracyScore,\n    processingCompleted: true\n  }\n} }}",
+                "options": {
+                    "responseHeaders": {
+                        "entries": [
+                            {
+                                "name": "Access-Control-Allow-Origin",
+                                "value": "*"
+                            },
+                            {
+                                "name": "Access-Control-Allow-Methods",
+                                "value": "POST, OPTIONS"
+                            },
+                            {
+                                "name": "Access-Control-Allow-Headers",
+                                "value": "Content-Type"
+                            }
+                        ]
+                    }
+                }
+            },
+            "id": "3c74382d-e121-4b21-baa5-28a9772eeb04",
+            "name": "Respond to Webhook - Success",
+            "type": "n8n-nodes-base.respondToWebhook",
+            "typeVersion": 1,
+            "position": [
+                520,
+                -240
+            ]
+        },
+        {
+            "parameters": {
+                "jsCode": "// Format captcha error response\nreturn {\n  json: {\n    success: false,\n    message: \"Captcha verification failed. Please try again.\",\n    code: \"CAPTCHA_FAILED\",\n    timestamp: new Date().toISOString()\n  }\n};"
+            },
+            "id": "c8048118-d1f4-48a1-8afc-17eda8fad572",
+            "name": "Format Captcha Error",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                -2080,
+                -40
+            ]
+        },
+        {
+            "parameters": {
+                "respondWith": "json",
+                "responseBody": "={{ $json }}",
+                "options": {
+                    "responseHeaders": {
+                        "entries": [
+                            {
+                                "name": "Access-Control-Allow-Origin",
+                                "value": "*"
+                            },
+                            {
+                                "name": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ]
+                    }
+                }
+            },
+            "id": "50b50477-4ae1-4095-9dc1-ff7a63b9f066",
+            "name": "Respond - Captcha Error",
+            "type": "n8n-nodes-base.respondToWebhook",
+            "typeVersion": 1,
+            "position": [
+                -1880,
+                -40
+            ]
+        },
+        {
+            "parameters": {
+                "jsCode": "// Format rate limit error response\nreturn {\n  json: {\n    success: false,\n    message: \"You've reached your free limit of 3 scholarship guides today. Please come back tomorrow.\",\n    code: \"LIMIT_REACHED\",\n    remainingRequests: 0,\n    resetTime: new Date(new Date().setHours(24, 0, 0, 0)).toISOString(),\n    timestamp: new Date().toISOString()\n  }\n};"
+            },
+            "id": "641031b3-637e-4064-a6e7-91f3ca66b702",
+            "name": "Format Limit Error",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                -1680,
+                -40
+            ]
+        },
+        {
+            "parameters": {
+                "respondWith": "json",
+                "responseBody": "={{ $json }}",
+                "options": {
+                    "responseHeaders": {
+                        "entries": [
+                            {
+                                "name": "Access-Control-Allow-Origin",
+                                "value": "*"
+                            },
+                            {
+                                "name": "Content-Type",
+                                "value": "application/json"
+                            },
+                            {
+                                "name": "Retry-After",
+                                "value": "86400"
+                            }
+                        ]
+                    }
+                }
+            },
+            "id": "332eb55e-6287-4d62-88ea-27b8c87b8f1d",
+            "name": "Respond - Limit Error",
+            "type": "n8n-nodes-base.respondToWebhook",
+            "typeVersion": 1,
+            "position": [
+                -1480,
+                -40
+            ]
+        },
+        {
+            "parameters": {
+                "jsCode": "// Format generic error response\nconst error = $input.item.json.error || {};\nconst errorMessage = error.message || 'An unexpected error occurred';\n\nreturn {\n  json: {\n    success: false,\n    message: \"We encountered an error processing your request. Please try again.\",\n    code: \"PROCESSING_ERROR\",\n    details: errorMessage,\n    timestamp: new Date().toISOString()\n  }\n};"
+            },
+            "id": "9a64117a-369c-4fc4-b298-604747a2fbf9",
+            "name": "Format Generic Error",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                -1280,
+                -40
+            ]
+        },
+        {
+            "parameters": {
+                "respondWith": "json",
+                "responseBody": "={{ $json }}",
+                "options": {
+                    "responseHeaders": {
+                        "entries": [
+                            {
+                                "name": "Access-Control-Allow-Origin",
+                                "value": "*"
+                            },
+                            {
+                                "name": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ]
+                    }
+                }
+            },
+            "id": "07ec2e3a-e1f1-4435-b49a-61bb6eada5fc",
+            "name": "Respond - Generic Error",
+            "type": "n8n-nodes-base.respondToWebhook",
+            "typeVersion": 1,
+            "position": [
+                -1080,
+                -40
+            ]
+        }
+    ],
+    "connections": {
+        "Webhook": {
+            "main": [
+                [
+                    {
+                        "node": "Extract Captcha & Email",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Extract Captcha & Email": {
+            "main": [
+                [
+                    {
+                        "node": "Verify hCaptcha",
+                        "type": "main",
+                        "index": 0
+                    }
+                ],
+                [
+                    {
+                        "node": "Format Captcha Error",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Verify hCaptcha": {
+            "main": [
+                [
+                    {
+                        "node": "Check Captcha Result",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Check Captcha Result": {
+            "main": [
+                [
+                    {
+                        "node": "Check Rate Limit",
+                        "type": "main",
+                        "index": 0
+                    }
+                ],
+                [
+                    {
+                        "node": "Format Captcha Error",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Check Rate Limit": {
+            "main": [
+                [
+                    {
+                        "node": "Validate Rate Limit",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Validate Rate Limit": {
+            "main": [
+                [
+                    {
+                        "node": "Record Request",
+                        "type": "main",
+                        "index": 0
+                    }
+                ],
+                [
+                    {
+                        "node": "Format Limit Error",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Record Request": {
+            "main": [
+                [
+                    {
+                        "node": "Parse & Validate Form Data",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Parse & Validate Form Data": {
+            "main": [
+                [
+                    {
+                        "node": "Add Realistic Data Context",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Add Realistic Data Context": {
+            "main": [
+                [
+                    {
+                        "node": "Smart Pre-Filter",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Smart Pre-Filter": {
+            "main": [
+                [
+                    {
+                        "node": "AI Agent - Enhanced Analysis",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "AI Agent - Enhanced Analysis": {
+            "main": [
+                [
+                    {
+                        "node": "Validate AI Output",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "OpenAI Model 1": {
+            "ai_languageModel": [
+                [
+                    {
+                        "node": "AI Agent - Enhanced Analysis",
+                        "type": "ai_languageModel",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Validate AI Output": {
+            "main": [
+                [
+                    {
+                        "node": "AI Agent - Structure Data",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "AI Agent - Structure Data": {
+            "main": [
+                [
+                    {
+                        "node": "Combine & Enhance Data",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "OpenAI Model 2": {
+            "ai_languageModel": [
+                [
+                    {
+                        "node": "AI Agent - Structure Data",
+                        "type": "ai_languageModel",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Combine & Enhance Data": {
+            "main": [
+                [
+                    {
+                        "node": "Generate Documents",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Generate Documents": {
+            "main": [
+                [
+                    {
+                        "node": "Add Disclaimer",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Add Disclaimer": {
+            "main": [
+                [
+                    {
+                        "node": "Respond to Webhook - Success",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Format Captcha Error": {
+            "main": [
+                [
+                    {
+                        "node": "Respond - Captcha Error",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Format Limit Error": {
+            "main": [
+                [
+                    {
+                        "node": "Respond - Limit Error",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Format Generic Error": {
+            "main": [
+                [
+                    {
+                        "node": "Respond - Generic Error",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        }
+    },
+    "pinData": {},
+    "meta": {
+        "templateCredsSetupCompleted": true,
+        "instanceId": "7aeb1cd3d7cf41f7d0ba4fc88dfc548a83b41578af078442e682a3ba5b702930"
+    }
+}

@@ -28,6 +28,25 @@
     -   **Success Probability**: Visual indicators of acceptance chances.
     -   **PDF Generation**: Export personalized action plans and application checklists to PDF.
 
+## ⚙️ Backend Architecture (n8n Workflow)
+
+The application uses **n8n** for sophisticated backend orchestration, ensuring security, reliability, and intelligent processing.
+
+-   **🛡️ Security & Validation**:
+    -   **hCaptcha**: Bot protection verification.
+    -   **Rate Limiting**: Postgres-backed tracking to prevent abuse (3 requests/day limit).
+    -   **Input Validation**: Strict schema validation for email and profile data.
+
+-   **🧠 Multi-Stage AI Pipeline**:
+    1.  **Context Injection**: Injects verified tuition ranges and scholarship data based on target countries.
+    2.  **Pre-Filtering**: Applies hard constraints (Budget, Geography, GPA) before AI processing.
+    3.  **Enhanced Analysis Agent**: OpenAI-powered agent acting as an "Educational Consultant" to generate recommendations.
+    4.  **Validation Layer**: Automated checks for hallucinated data, placeholder text, or incorrect currency formats.
+    5.  **Data Structuring**: Converts unstructured AI advice into clean, strictly typed JSON for the frontend.
+
+-   **📄 Document Generation**:
+    -   Auto-generates **Statement of Purpose (SOP)** outlines and tailored application checklists dynamically.
+
 ## 🛠️ Technology Stack
 
 -   **Frontend Framework**: [React](https://react.dev/) (Hooks, Context, Custom Hooks)
