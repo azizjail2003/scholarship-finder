@@ -51,7 +51,7 @@ Follow these steps to set up the project locally.
 
 1.  **Clone the repository**
     ```bash
-    git clone https://github.com/yourusername/scholarship-quest.git
+    git clone https://github.com/azizjail2003/scholarship-quest.git
     cd scholarship-quest
     ```
 
